@@ -4,33 +4,82 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\AccessLog;
+use App\Services\FingerprintService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 class ClientController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the resource with advanced filtering.
      */
     public function index(Request $request)
     {
         $query = Client::query();
 
-        if ($request->has('search')) {
+        // Búsqueda general
+        if ($request->has('search') && $request->search) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
                   ->orWhere('last_name', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('dni', 'like', "%{$search}%")
+                  ->orWhere('qr_code', 'like', "%{$search}%");
             });
         }
 
-        if ($request->has('status')) {
+        // Filtro por estado
+        if ($request->has('status') && $request->status) {
             $query->where('status', $request->status);
         }
 
-        $clients = $query->with('memberships')->paginate($request->per_page ?? 15);
+        // Filtro: solo con membresía activa
+        if ($request->boolean('active_membership')) {
+            $query->withActiveMemership();
+        }
+
+        // Filtro: sin membresía / membresía vencida
+        if ($request->boolean('expired_membership')) {
+            $query->withExpiredMembership();
+        }
+
+        // Filtro: con huella digital
+        if ($request->has('has_fingerprint')) {
+            if ($request->boolean('has_fingerprint')) {
+                $query->withFingerprint();
+            } else {
+                $query->withoutFingerprint();
+            }
+        }
+
+        // Filtro por género
+        if ($request->has('gender') && $request->gender) {
+            $query->where('gender', $request->gender);
+        }
+
+        // Ordenamiento
+        $sortBy = $request->sort_by ?? 'created_at';
+        $sortDir = $request->sort_dir ?? 'desc';
+        $allowedSorts = ['first_name', 'last_name', 'email', 'created_at', 'status'];
+        if (in_array($sortBy, $allowedSorts)) {
+            $query->orderBy($sortBy, $sortDir);
+        }
+
+        // Incluir relaciones opcionales
+        $relations = ['memberships'];
+        if ($request->boolean('with_payments')) {
+            $relations[] = 'payments';
+        }
+        if ($request->boolean('with_access_logs')) {
+            $relations[] = 'accessLogs';
+        }
+
+        $clients = $query->with($relations)->paginate($request->per_page ?? 15);
 
         return response()->json($clients);
     }
@@ -43,13 +92,21 @@ class ClientController extends Controller
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:clients,email',
+            'email' => 'nullable|email|unique:clients,email',
             'phone' => 'nullable|string|max:20',
+            'phone_secondary' => 'nullable|string|max:20',
             'dni' => 'nullable|string|unique:clients,dni',
             'birth_date' => 'nullable|date',
+            'gender' => 'nullable|in:M,F,other',
             'address' => 'nullable|string',
             'photo_url' => 'nullable|string',
             'notes' => 'nullable|string',
+            'emergency_contact_name' => 'nullable|string|max:255',
+            'emergency_contact_phone' => 'nullable|string|max:20',
+            'weight_kg' => 'nullable|numeric|min:0|max:500',
+            'height_cm' => 'nullable|numeric|min:0|max:300',
+            'medical_conditions' => 'nullable|string',
+            'referral_source' => 'nullable|string|max:255',
         ]);
 
         $validated['qr_code'] = 'GYM-' . Str::upper(Str::random(10));
@@ -57,15 +114,35 @@ class ClientController extends Controller
 
         $client = Client::create($validated);
 
-        return response()->json($client, 201);
+        return response()->json($client->load('memberships'), 201);
     }
 
     /**
-     * Display the specified resource.
+     * Display the specified resource with all relationships.
      */
     public function show(string $id)
     {
-        $client = Client::with(['memberships', 'payments', 'accessLogs'])->findOrFail($id);
+        $client = Client::with([
+            'memberships.plan',
+            'payments' => function ($q) {
+                $q->orderBy('created_at', 'desc')->limit(20);
+            },
+            'accessLogs' => function ($q) {
+                $q->orderBy('access_time', 'desc')->limit(20);
+            },
+            'installments',
+        ])->findOrFail($id);
+
+        // Agregar estadísticas
+        $client->stats = [
+            'total_payments' => $client->payments()->sum('amount'),
+            'total_visits' => $client->accessLogs()->where('status', 'allowed')->count(),
+            'last_visit' => $client->accessLogs()->where('status', 'allowed')->orderBy('access_time', 'desc')->value('access_time'),
+            'pending_installments' => $client->installments()->whereIn('status', ['pending', 'partial'])->count(),
+            'overdue_installments' => $client->installments()->where('status', '!=', 'paid')->where('due_date', '<', now())->count(),
+            'member_since_days' => $client->created_at->diffInDays(now()),
+        ];
+
         return response()->json($client);
     }
 
@@ -79,19 +156,27 @@ class ClientController extends Controller
         $validated = $request->validate([
             'first_name' => 'sometimes|required|string|max:255',
             'last_name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|email|unique:clients,email,' . $id,
+            'email' => 'sometimes|nullable|email|unique:clients,email,' . $id,
             'phone' => 'nullable|string|max:20',
+            'phone_secondary' => 'nullable|string|max:20',
             'dni' => 'nullable|string|unique:clients,dni,' . $id,
             'birth_date' => 'nullable|date',
+            'gender' => 'nullable|in:M,F,other',
             'address' => 'nullable|string',
             'photo_url' => 'nullable|string',
             'status' => 'sometimes|in:active,inactive,suspended',
             'notes' => 'nullable|string',
+            'emergency_contact_name' => 'nullable|string|max:255',
+            'emergency_contact_phone' => 'nullable|string|max:20',
+            'weight_kg' => 'nullable|numeric|min:0|max:500',
+            'height_cm' => 'nullable|numeric|min:0|max:300',
+            'medical_conditions' => 'nullable|string',
+            'referral_source' => 'nullable|string|max:255',
         ]);
 
         $client->update($validated);
 
-        return response()->json($client);
+        return response()->json($client->load('memberships'));
     }
 
     /**
@@ -103,5 +188,297 @@ class ClientController extends Controller
         $client->delete();
 
         return response()->json(['message' => 'Client deleted successfully']);
+    }
+
+    // ─── Métodos Especiales ───
+
+    /**
+     * Get client by QR code.
+     */
+    public function getByQR(string $qrCode)
+    {
+        $client = Client::where('qr_code', $qrCode)
+            ->with('memberships')
+            ->first();
+
+        if (!$client) {
+            return response()->json([
+                'message' => 'Cliente no encontrado con ese código QR',
+            ], 404);
+        }
+
+        return response()->json($client);
+    }
+
+    /**
+     * Get client by DNI/DPI.
+     */
+    public function getByDni(string $dni)
+    {
+        $client = Client::where('dni', $dni)
+            ->with('memberships')
+            ->first();
+
+        if (!$client) {
+            return response()->json([
+                'message' => 'Cliente no encontrado con ese DPI/DNI',
+            ], 404);
+        }
+
+        return response()->json($client);
+    }
+
+    /**
+     * Upload client photo.
+     */
+    public function uploadPhoto(Request $request, string $id)
+    {
+        $client = Client::findOrFail($id);
+
+        $request->validate([
+            'photo' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
+        ]);
+
+        // Delete old photo if exists
+        if ($client->photo_url && Storage::disk('public')->exists($client->photo_url)) {
+            Storage::disk('public')->delete($client->photo_url);
+        }
+
+        $path = $request->file('photo')->store('clients/photos', 'public');
+        $client->update(['photo_url' => $path]);
+
+        return response()->json([
+            'message' => 'Foto actualizada exitosamente',
+            'photo_url' => $path,
+            'full_url' => asset('storage/' . $path),
+            'client' => $client,
+        ]);
+    }
+
+    /**
+     * Remove client photo.
+     */
+    public function removePhoto(string $id)
+    {
+        $client = Client::findOrFail($id);
+
+        if ($client->photo_url && Storage::disk('public')->exists($client->photo_url)) {
+            Storage::disk('public')->delete($client->photo_url);
+        }
+
+        $client->update(['photo_url' => null]);
+
+        return response()->json([
+            'message' => 'Foto eliminada exitosamente',
+            'client' => $client,
+        ]);
+    }
+
+    // ─── Fingerprint Endpoints (Listos para integración con lector biométrico) ───
+
+    /**
+     * Register a fingerprint for a client.
+     *
+     * INTEGRACIÓN CON LECTOR BIOMÉTRICO:
+     * 1. El frontend captura la huella con el SDK del lector (ej: DigitalPersona, SecuGen)
+     * 2. El SDK genera un "template" (string binaria o base64)
+     * 3. Se envía el template + metadata a este endpoint
+     * 4. El backend almacena el template y lo registra con el servidor Java
+     */
+    public function registerFingerprint(Request $request, string $id)
+    {
+        $client = Client::findOrFail($id);
+
+        // Validar que no tenga huella registrada ya
+        if ($client->fingerprint_id) {
+            return response()->json([
+                'message' => 'Este cliente ya tiene una huella digital registrada. Elimínela primero.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            // El template vendrá del SDK del lector biométrico
+            'fingerprint_template' => 'required|string',
+            // ID del dispositivo lector
+            'device_id' => 'nullable|string|max:255',
+            // Calidad de la captura (0-100), proporcionada por el SDK
+            'quality' => 'nullable|integer|min:0|max:100',
+        ]);
+
+        // Inicializar servicio de huella digital
+        $fingerprintService = new FingerprintService();
+
+        // Registrar huella con el dispositivo/servidor Java
+        $deviceResponse = $fingerprintService->registerFingerprintWithDevice(
+            $client,
+            $validated['fingerprint_template']
+        );
+
+        if (!$deviceResponse['success']) {
+            return response()->json([
+                'message' => 'Error registering fingerprint with device',
+                'error' => $deviceResponse['error'] ?? 'Unknown error',
+            ], 500);
+        }
+
+        // Generar un ID único de huella basado en la respuesta del dispositivo
+        $fingerprintId = $deviceResponse['fingerprint_id'] ?? 'FP-' . $client->id . '-' . now()->timestamp . '-' . Str::random(8);
+
+        // Guardar en la base de datos
+        $client->registerFingerprint(
+            $fingerprintId,
+            $validated['fingerprint_template'],
+            $validated['device_id'] ?? config('services.fingerprint.device_id', 'default'),
+            $validated['quality'] ?? $deviceResponse['quality'] ?? null,
+        );
+
+        return response()->json([
+            'message' => 'Huella digital registrada exitosamente',
+            'fingerprint_id' => $fingerprintId,
+            'registered_at' => $client->fingerprint_registered_at,
+            'quality' => $client->fingerprint_quality,
+            'device' => $deviceResponse['data'] ?? null,
+            'client' => $client,
+        ], 201);
+    }
+
+    /**
+     * Remove (delete) a client's fingerprint.
+     */
+    public function removeFingerprint(string $id)
+    {
+        $client = Client::findOrFail($id);
+
+        if (!$client->fingerprint_id) {
+            return response()->json([
+                'message' => 'Este cliente no tiene huella digital registrada.',
+            ], 422);
+        }
+
+        // Eliminar del dispositivo/servidor Java
+        $fingerprintService = new FingerprintService();
+        $deviceResponse = $fingerprintService->deleteFingerprintFromDevice($client->fingerprint_id);
+
+        // Eliminar de la base de datos sin importar el resultado del dispositivo
+        // (en caso de que el dispositivo esté desconectado)
+        $client->removeFingerprint();
+
+        return response()->json([
+            'message' => 'Huella digital eliminada exitosamente',
+            'client' => $client,
+        ]);
+    }
+
+    /**
+     * Get fingerprint status for a client.
+     */
+    public function fingerprintStatus(string $id)
+    {
+        $client = Client::findOrFail($id);
+
+        return response()->json([
+            'has_fingerprint' => $client->has_fingerprint,
+            'fingerprint_id' => $client->fingerprint_id,
+            'device_id' => $client->fingerprint_device_id,
+            'quality' => $client->fingerprint_quality,
+            'registered_at' => $client->fingerprint_registered_at,
+        ]);
+    }
+
+    // ─── Regeneración de QR ───
+
+    /**
+     * Regenerate QR code for a client.
+     */
+    public function regenerateQR(string $id)
+    {
+        $client = Client::findOrFail($id);
+
+        $newQR = 'GYM-' . Str::upper(Str::random(10));
+        $client->update(['qr_code' => $newQR]);
+
+        return response()->json([
+            'message' => 'Código QR regenerado exitosamente',
+            'qr_code' => $newQR,
+            'client' => $client,
+        ]);
+    }
+
+    // ─── Statistics ───
+
+    /**
+     * Dashboard statistics for clients module.
+     */
+    public function statistics()
+    {
+        $today = Carbon::today();
+
+        $totalClients = Client::count();
+        $activeClients = Client::active()->count();
+        $inactiveClients = Client::inactive()->count();
+        $suspendedClients = Client::suspended()->count();
+
+        // Clientes con membresía activa
+        $withActiveMembership = Client::withActiveMemership()->count();
+
+        // Clientes con huella registrada
+        $withFingerprint = Client::withFingerprint()->count();
+        $withoutFingerprint = Client::withoutFingerprint()->count();
+
+        // Nuevos clientes este mes
+        $newThisMonth = Client::whereMonth('created_at', $today->month)
+            ->whereYear('created_at', $today->year)
+            ->count();
+
+        // Nuevos la semana pasada
+        $newLastWeek = Client::whereBetween('created_at', [
+            $today->copy()->subWeek()->startOfWeek(),
+            $today->copy()->subWeek()->endOfWeek(),
+        ])->count();
+
+        // Membresías que vencen en los próximos 7 días
+        $expiringMemberships = Client::whereHas('memberships', function ($q) use ($today) {
+            $q->where('status', 'active')
+              ->whereBetween('end_date', [$today, $today->copy()->addDays(7)]);
+        })->count();
+
+        // Distribución por género
+        $genderDistribution = Client::selectRaw('gender, count(*) as count')
+            ->whereNotNull('gender')
+            ->groupBy('gender')
+            ->pluck('count', 'gender');
+
+        return response()->json([
+            'total' => $totalClients,
+            'active' => $activeClients,
+            'inactive' => $inactiveClients,
+            'suspended' => $suspendedClients,
+            'with_active_membership' => $withActiveMembership,
+            'with_fingerprint' => $withFingerprint,
+            'without_fingerprint' => $withoutFingerprint,
+            'new_this_month' => $newThisMonth,
+            'new_last_week' => $newLastWeek,
+            'expiring_memberships_7d' => $expiringMemberships,
+            'gender_distribution' => $genderDistribution,
+        ]);
+    }
+
+    /**
+     * Toggle client status (active/inactive/suspended).
+     */
+    public function toggleStatus(Request $request, string $id)
+    {
+        $client = Client::findOrFail($id);
+
+        $validated = $request->validate([
+            'status' => 'required|in:active,inactive,suspended',
+        ]);
+
+        $client->update(['status' => $validated['status']]);
+
+        return response()->json([
+            'message' => 'Estado actualizado a: ' . $validated['status'],
+            'client' => $client->load('memberships'),
+        ]);
     }
 }

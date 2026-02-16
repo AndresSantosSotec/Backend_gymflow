@@ -10,6 +10,55 @@ use Illuminate\Support\Str;
 class MembershipPlanController extends Controller
 {
     /**
+     * Obtener planes publicados (público, sin autenticación)
+     */
+    public function publicPlans()
+    {
+        $plans = MembershipPlan::where('published', true)
+            ->orderBy('price', 'asc')
+            ->get()
+            ->map(function ($plan) {
+                return [
+                    'id' => (string) $plan->id,
+                    'name' => $plan->name,
+                    'slug' => $plan->slug,
+                    'price' => (float) $plan->price,
+                    'durationDays' => $plan->duration_days,
+                    'description' => $plan->description,
+                    'features' => $plan->features ?? [],
+                    'published' => $plan->published,
+                    'createdAt' => $plan->created_at->toISOString(),
+                    'updatedAt' => $plan->updated_at->toISOString(),
+                ];
+            });
+
+        return response()->json($plans);
+    }
+
+    /**
+     * Obtener un plan publicado por slug (público, sin autenticación)
+     */
+    public function publicPlanBySlug(string $slug)
+    {
+        $plan = MembershipPlan::where('slug', $slug)
+            ->where('published', true)
+            ->firstOrFail();
+
+        return response()->json([
+            'id' => (string) $plan->id,
+            'name' => $plan->name,
+            'slug' => $plan->slug,
+            'price' => (float) $plan->price,
+            'durationDays' => $plan->duration_days,
+            'description' => $plan->description,
+            'features' => $plan->features ?? [],
+            'published' => $plan->published,
+            'createdAt' => $plan->created_at->toISOString(),
+            'updatedAt' => $plan->updated_at->toISOString(),
+        ]);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
@@ -89,5 +138,49 @@ class MembershipPlanController extends Controller
         $plan->delete();
 
         return response()->json(['message' => 'Plan deleted successfully']);
+    }
+
+    /**
+     * Toggle the published status of a plan.
+     */
+    public function togglePublished(string $id)
+    {
+        $plan = MembershipPlan::findOrFail($id);
+        $plan->published = !$plan->published;
+        $plan->save();
+
+        return response()->json([
+            'id' => (string) $plan->id,
+            'name' => $plan->name,
+            'slug' => $plan->slug,
+            'price' => (float) $plan->price,
+            'durationDays' => $plan->duration_days,
+            'description' => $plan->description,
+            'features' => $plan->features ?? [],
+            'published' => $plan->published,
+            'createdAt' => $plan->created_at->toISOString(),
+            'updatedAt' => $plan->updated_at->toISOString(),
+        ]);
+    }
+
+    /**
+     * Get a plan by its slug.
+     */
+    public function getBySlug(string $slug)
+    {
+        $plan = MembershipPlan::where('slug', $slug)->firstOrFail();
+
+        return response()->json([
+            'id' => (string) $plan->id,
+            'name' => $plan->name,
+            'slug' => $plan->slug,
+            'price' => (float) $plan->price,
+            'durationDays' => $plan->duration_days,
+            'description' => $plan->description,
+            'features' => $plan->features ?? [],
+            'published' => $plan->published,
+            'createdAt' => $plan->created_at->toISOString(),
+            'updatedAt' => $plan->updated_at->toISOString(),
+        ]);
     }
 }

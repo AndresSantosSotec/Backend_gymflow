@@ -34,4 +34,9 @@ class Payment extends Model
     {
         return $this->belongsTo(Membership::class);
     }
+
+    public function receipts()
+    {
+        return $this->hasMany(Receipt::class);
+    }
 }
