@@ -35,6 +35,11 @@ Route::get('/site-settings', [SiteSettingController::class, 'index']);
 Route::get('/public/plans', [MembershipPlanController::class, 'publicPlans']);
 Route::get('/public/plans/{slug}', [MembershipPlanController::class, 'publicPlanBySlug']);
 Route::get('/public/products', [ProductController::class, 'publicIndex']);
+Route::get('/public/fingerprint-clients', [ClientController::class, 'getFingerprintClients']);
+
+// Access verification (Public for Kiosk/Identifier)
+Route::post('/access/verify-qr', [AccessLogController::class, 'verifyQR']);
+Route::post('/access/verify-fingerprint', [AccessLogController::class, 'verifyFingerprint']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -60,8 +65,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/membership-plans/slug/{slug}', [MembershipPlanController::class, 'getBySlug']);
 
     // Access verification (CRÍTICO - Core business logic)
-    Route::post('/access/verify-qr', [AccessLogController::class, 'verifyQR']);
-    Route::post('/access/verify-fingerprint', [AccessLogController::class, 'verifyFingerprint']);
+    // Route::post('/access/verify-qr', [AccessLogController::class, 'verifyQR']); // Moved to public
+    // Route::post('/access/verify-fingerprint', [AccessLogController::class, 'verifyFingerprint']); // Moved to public
     Route::get('/access/recent', [AccessLogController::class, 'recent']);
     Route::get('/access/by-client/{clientId}', [AccessLogController::class, 'byClient']);
 

@@ -137,6 +137,7 @@ class ElectronicBillingService
             // Este es un ejemplo de integración con Facturama
             // Ajustar según la documentación de la API real
 
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
@@ -160,7 +161,7 @@ class ElectronicBillingService
                 ],
             ]);
 
-            if ($response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            if ($response->successful()) {
                 $jsonData = $response->json();
                 return [
                     'success' => true,
@@ -172,7 +173,7 @@ class ElectronicBillingService
                 ];
             }
 
-            $jsonData = $response ? $response->json() : [];
+            $jsonData = $response->json();
             return [
                 'success' => false,
                 'provider' => 'facturama',
@@ -196,12 +197,13 @@ class ElectronicBillingService
             // Integración con SAT (México)
             // Esta es una estructura ejemplo
 
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withHeaders([
                 'X-API-Key' => $this->apiKey,
                 'Content-Type' => 'application/json',
             ])->post($this->apiUrl . '/cfdi/generate', $invoiceData);
 
-            if ($response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            if ($response->successful()) {
                 $jsonData = $response->json();
                 return [
                     'success' => true,
@@ -212,7 +214,7 @@ class ElectronicBillingService
                 ];
             }
 
-            $jsonData = $response ? $response->json() : [];
+            $jsonData = $response->json();
             return [
                 'success' => false,
                 'provider' => 'sat',
@@ -350,11 +352,12 @@ class ElectronicBillingService
     private function cancelFacturama(array $billingData): array
     {
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
             ])->delete($this->apiUrl . '/invoices/' . $billingData['cfdi_id']);
 
-            if ($response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            if ($response->successful()) {
                 return [
                     'success' => true,
                     'provider' => 'facturama',
@@ -362,7 +365,7 @@ class ElectronicBillingService
                 ];
             }
 
-            $jsonData = $response ? $response->json() : [];
+            $jsonData = $response->json();
             return [
                 'success' => false,
                 'provider' => 'facturama',

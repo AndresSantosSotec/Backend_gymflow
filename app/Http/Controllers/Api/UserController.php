@@ -44,6 +44,7 @@ class UserController extends Controller
             'cvUrl' => 'nullable|string',
             'fingerprintId' => 'nullable|string|unique:users',
             'fingerprintRegisteredAt' => 'nullable|date',
+            'fingerprintData' => 'nullable|string',
         ]);
 
         $data = $validated;
@@ -56,6 +57,7 @@ class UserController extends Controller
         if (isset($validated['cvUrl'])) $data['cv_url'] = $validated['cvUrl'];
         if (isset($validated['fingerprintId'])) $data['fingerprint_id'] = $validated['fingerprintId'];
         if (isset($validated['fingerprintRegisteredAt'])) $data['fingerprint_registered_at'] = $validated['fingerprintRegisteredAt'];
+        if (isset($validated['fingerprintData'])) $data['fingerprint_template'] = $validated['fingerprintData'];
 
         // Map nested emergencyContact
         if (!empty($validated['emergencyContact'])) {
@@ -125,6 +127,7 @@ class UserController extends Controller
             'cvUrl' => 'nullable|string',
             'fingerprintId' => ['nullable', 'string', Rule::unique('users')->ignore($user->id)],
             'fingerprintRegisteredAt' => 'nullable|date',
+            'fingerprintData' => 'nullable|string',
         ]);
 
         $data = $validated;
@@ -139,6 +142,8 @@ class UserController extends Controller
         if (isset($validated['cvUrl'])) $data['cv_url'] = $validated['cvUrl'];
         if (isset($validated['fingerprintId'])) $data['fingerprint_id'] = $validated['fingerprintId'];
         if (isset($validated['fingerprintRegisteredAt'])) $data['fingerprint_registered_at'] = $validated['fingerprintRegisteredAt'];
+        if (isset($validated['fingerprintData'])) $data['fingerprint_template'] = $validated['fingerprintData'];
+
 
         // Map nested emergencyContact
         if (!empty($validated['emergencyContact'])) {

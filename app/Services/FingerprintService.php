@@ -33,10 +33,11 @@ class FingerprintService
     public function getDeviceStatus(): array
     {
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::timeout($this->timeout)
                 ->get("{$this->baseUrl}/device/status");
 
-            if ($response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            if ($response->successful()) {
                 return [
                     'success' => true,
                     'data' => $response->json(),
@@ -46,7 +47,7 @@ class FingerprintService
             return [
                 'success' => false,
                 'error' => 'Error connecting to fingerprint device',
-                'status' => $response ? $response->getStatusCode() : 0,
+                'status' => $response->status(),
             ];
         } catch (Exception $e) {
             Log::error('Fingerprint device status error: ' . $e->getMessage());
@@ -63,10 +64,11 @@ class FingerprintService
     public function captureFingerprint(): array
     {
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::timeout($this->timeout)
                 ->post("{$this->baseUrl}/fingerprint/capture");
 
-            if ($response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            if ($response->successful()) {
                 return [
                     'success' => true,
                     'data' => $response->json(),
@@ -76,7 +78,7 @@ class FingerprintService
             return [
                 'success' => false,
                 'error' => 'Failed to capture fingerprint',
-                'status' => $response ? $response->getStatusCode() : 0,
+                'status' => $response->status(),
             ];
         } catch (Exception $e) {
             Log::error('Fingerprint capture error: ' . $e->getMessage());
@@ -100,10 +102,11 @@ class FingerprintService
                 'device_id' => config('services.fingerprint.device_id', 'default'),
             ];
 
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::timeout($this->timeout)
                 ->post("{$this->baseUrl}/fingerprint/register", $payload);
 
-            if ($response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            if ($response->successful()) {
                 $data = $response->json();
 
                 Log::info("Fingerprint registered for client {$client->id}", $data);
@@ -120,7 +123,7 @@ class FingerprintService
             return [
                 'success' => false,
                 'error' => 'Failed to register fingerprint with device',
-                'status' => ($response ? $response->getStatusCode() : 0),
+                'status' => $response->status(),
             ];
         } catch (Exception $e) {
             Log::error("Fingerprint registration error for client {$client->id}: " . $e->getMessage());
@@ -137,13 +140,14 @@ class FingerprintService
     public function verifyFingerprintWithDevice(string $fingerprintId): array
     {
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::timeout($this->timeout)
                 ->post("{$this->baseUrl}/fingerprint/verify", [
                     'fingerprint_id' => $fingerprintId,
                     'device_id' => config('services.fingerprint.device_id', 'default'),
                 ]);
 
-            if ($response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            if ($response->successful()) {
                 $data = $response->json();
 
                 return [
@@ -158,7 +162,7 @@ class FingerprintService
                 'success' => false,
                 'match' => false,
                 'error' => 'Failed to verify fingerprint',
-                'status' => ($response ? $response->getStatusCode() : 0),
+                'status' => $response->status(),
             ];
         } catch (Exception $e) {
             Log::error("Fingerprint verification error: " . $e->getMessage());
@@ -176,10 +180,11 @@ class FingerprintService
     public function deleteFingerprintFromDevice(string $fingerprintId): array
     {
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::timeout($this->timeout)
                 ->delete("{$this->baseUrl}/fingerprint/{$fingerprintId}");
 
-            if ($response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            if ($response->successful()) {
                 return [
                     'success' => true,
                     'data' => $response->json(),
@@ -189,7 +194,7 @@ class FingerprintService
             return [
                 'success' => false,
                 'error' => 'Failed to delete fingerprint from device',
-                'status' => ($response ? $response->getStatusCode() : 0),
+                'status' => $response->status(),
             ];
         } catch (Exception $e) {
             Log::error("Fingerprint deletion error: " . $e->getMessage());
@@ -213,6 +218,7 @@ class FingerprintService
             $errors = [];
 
             foreach ($clients as $client) {
+                /** @var \Illuminate\Http\Client\Response $response */
                 $response = Http::timeout($this->timeout)
                     ->post("{$this->baseUrl}/fingerprint/sync", [
                         'client_id' => $client->id,
@@ -221,11 +227,11 @@ class FingerprintService
                         'device_id' => config('services.fingerprint.device_id', 'default'),
                     ]);
 
-                if ($response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+                if ($response->successful()) {
                     $synced++;
                 } else {
                     $failed++;
-                    $errors[] = "Client {$client->id}: Status " . ($response ? $response->getStatusCode() : 0);
+                    $errors[] = "Client {$client->id}: Status " . $response->status();
                 }
             }
 
@@ -252,10 +258,11 @@ class FingerprintService
     public function listFingerprints(): array
     {
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::timeout($this->timeout)
                 ->get("{$this->baseUrl}/fingerprint/list");
 
-            if ($response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            if ($response->successful()) {
                 return [
                     'success' => true,
                     'fingerprints' => $response->json(),
@@ -265,7 +272,7 @@ class FingerprintService
             return [
                 'success' => false,
                 'error' => 'Failed to list fingerprints',
-                'status' => ($response ? $response->getStatusCode() : 0),
+                'status' => $response->status(),
             ];
         } catch (Exception $e) {
             Log::error("Fingerprint list error: " . $e->getMessage());
@@ -282,10 +289,11 @@ class FingerprintService
     public function testConnection(): array
     {
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::timeout($this->timeout)
                 ->get("{$this->baseUrl}/health");
 
-            if ($response && $response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            if ($response->successful()) {
                 return [
                     'success' => true,
                     'message' => 'Connected to fingerprint server',
@@ -296,7 +304,7 @@ class FingerprintService
             return [
                 'success' => false,
                 'error' => 'Fingerprint server returned error',
-                'status' => ($response ? $response->getStatusCode() : 0),
+                'status' => $response->status(),
             ];
         } catch (Exception $e) {
             return [

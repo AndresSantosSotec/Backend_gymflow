@@ -481,4 +481,16 @@ class ClientController extends Controller
             'client' => $client->load('memberships'),
         ]);
     }
+
+    /**
+     * Get a lightweight list of clients with fingerprints for public simulation.
+     */
+    public function getFingerprintClients()
+    {
+        $clients = Client::whereNotNull('fingerprint_id')
+            ->select('id', 'first_name', 'last_name', 'fingerprint_id', 'photo_url')
+            ->get();
+
+        return response()->json($clients);
+    }
 }
