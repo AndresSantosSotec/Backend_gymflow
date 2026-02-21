@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\ReportExportController;
 use App\Http\Controllers\Api\PaymentInstallmentController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\FingerprintStatusController;
+use App\Http\Controllers\Api\RecurrenteController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -182,5 +183,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/valoracion-inventario/pdf', [ReportExportController::class, 'valoracionPdf']);
         Route::get('/rotacion-inventario/pdf', [ReportExportController::class, 'rotacionPdf']);
         Route::get('/reporte-semestral/pdf', [ReportExportController::class, 'semestralPdf']);
+    });
+
+    // ── Recurrente ─────────────────────────────────────────────────────────
+    Route::prefix('pagos')->group(function () {
+        // Fase 3: Crear checkout hosteado (link de pago)
+        Route::post('/checkout', [RecurrenteController::class, 'createCheckout']);
+        // Fase 4: Cobrar con tarjeta guardada
+        Route::post('/cobrar', [RecurrenteController::class, 'chargeCard']);
+        // Historial de pagos de un cliente
+        Route::get('/historial/{clientId}', [RecurrenteController::class, 'paymentHistory']);
+    });
+
+    Route::prefix('suscripciones')->group(function () {
+        // Fase 5: Crear suscripción recurrente
+        Route::post('/crear', [RecurrenteController::class, 'createSubscription']);
+        // Cancelar suscripción
+        Route::delete('/{id}', [RecurrenteController::class, 'cancelSubscription']);
     });
 });

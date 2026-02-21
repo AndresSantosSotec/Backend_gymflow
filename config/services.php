@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'recurrente' => [
+        'public_key' => env('RECURRENTE_PUBLIC_KEY'),
+        'secret_key' => env('RECURRENTE_SECRET_KEY'),
+        'base_url'   => env('RECURRENTE_BASE_URL', 'https://app.recurrente.com/api'),
+        'env'        => env('RECURRENTE_ENV', 'production'),
+    ],
+
 ];

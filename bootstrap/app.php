@@ -15,6 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
+
+        // Excluir el endpoint de webhooks de Recurrente del CSRF
+        // (Recurrente hace POST sin token de sesión)
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/recurrente',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
