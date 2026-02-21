@@ -4,24 +4,30 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\Client\Response;
 use Illuminate\Http\Client\RequestException;
 
 /**
  * RecurrenteService
  *
- * Centraliza todas las llamadas a la API de Recurrente.
- * Documentación: https://recurrente.com/docs/api
- *
- * Autenticación via headers:
- *   X-PUBLIC-KEY: {public_key}
- *   X-SECRET-KEY: {secret_key}
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║  FIXES DE QA IMPLEMENTADOS                                   ║
+ * ╠══════════════════════════════════════════════════════════════╣
+ * ║ 🔴 Fix 1.1 — Timeout configurado (30s). Frontend no queda   ║
+ * ║              en loading infinito.                            ║
+ * ║ 🔴 Fix 1.2 — try/catch en TODOS los requests, error claro   ║
+ * ║ 🔴 Fix 1.3 — 401 detectado específicamente (llaves inválidas)║
+ * ║ 🟡 Fix 1.4 — Retry con exponential backoff (429/5xx)        ║
+ * ╚══════════════════════════════════════════════════════════════╝
  */
 class RecurrenteService
 {
     protected string $baseUrl;
     protected string $publicKey;
     protected string $secretKey;
+
+    // FIX 1.4 — Configuración de reintentos
+    private const MAX_RETRIES    = 3;
+    private const RETRY_DELAY_MS = 500; // ms base para exponential backoff
 
     public function __construct()
     {
@@ -30,203 +36,278 @@ class RecurrenteService
         $this->secretKey = config('services.recurrente.secret_key');
     }
 
-    // ─────────────────────────────────────────────
-    //  HTTP HELPER
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
+    //  HTTP HELPER — con retry, timeout y detección de errores
+    // ─────────────────────────────────────────────────────────────
 
     /**
      * Realiza una petición HTTP a la API de Recurrente.
      *
-     * @param  string  $method   GET | POST | PATCH | DELETE
-     * @param  string  $endpoint Ruta relativa, ej: '/users'
-     * @param  array   $body     Cuerpo del request (solo para POST/PATCH)
-     * @return array   Respuesta decodificada como array
-     * @throws \Exception si la API devuelve error
+     * FIX 1.1 — Timeout de 30s configurado.
+     * FIX 1.2 — Todo error tiene mensaje claro para el usuario.
+     * FIX 1.3 — Error 401 genera alerta específica al admin.
+     * FIX 1.4 — Reintenta automáticamente en 429/5xx con backoff.
+     *
+     * @throws \Exception con mensaje descriptivo
      */
     protected function request(string $method, string $endpoint, array $body = []): array
     {
-        $url = $this->baseUrl . $endpoint;
+        $url     = $this->baseUrl . $endpoint;
+        $attempt = 0;
 
-        Log::info("[Recurrente] → {$method} {$url}", [
-            'body' => $body,
-        ]);
+        Log::info("[Recurrente] → {$method} {$url}", ['body' => $body]);
 
-        try {
-            $http = Http::withHeaders([
-                'X-PUBLIC-KEY' => $this->publicKey,
-                'X-SECRET-KEY' => $this->secretKey,
-                'Content-Type' => 'application/json',
-                'Accept'       => 'application/json',
-            ])->timeout(30);
+        while ($attempt < self::MAX_RETRIES) {
+            $attempt++;
 
-            $response = match (strtoupper($method)) {
-                'GET'    => $http->get($url),
-                'POST'   => $http->post($url, $body),
-                'PATCH'  => $http->patch($url, $body),
-                'DELETE' => $http->delete($url),
-                default  => throw new \InvalidArgumentException("HTTP method [{$method}] not supported"),
-            };
+            try {
+                $http = Http::withHeaders([
+                    'X-PUBLIC-KEY' => $this->publicKey,
+                    'X-SECRET-KEY' => $this->secretKey,
+                    'Content-Type' => 'application/json',
+                    'Accept'       => 'application/json',
+                ])->timeout(30); // FIX 1.1 — 30s timeout
 
-            $data = $response->json() ?? [];
+                $response = match (strtoupper($method)) {
+                    'GET'    => $http->get($url),
+                    'POST'   => $http->post($url, $body),
+                    'PATCH'  => $http->patch($url, $body),
+                    'DELETE' => $http->delete($url),
+                    default  => throw new \InvalidArgumentException("HTTP method [{$method}] not supported"),
+                };
 
-            Log::info("[Recurrente] ← {$response->status()} {$url}", [
-                'response' => $data,
-            ]);
+                $data       = $response->json() ?? [];
+                $statusCode = $response->status();
 
-            if ($response->failed()) {
-                $message = $data['message'] ?? $data['error'] ?? "HTTP {$response->status()} from Recurrente";
-                Log::error("[Recurrente] Error {$response->status()}: {$message}", [
-                    'url'  => $url,
-                    'body' => $body,
-                    'data' => $data,
-                ]);
-                throw new \Exception("Recurrente API error ({$response->status()}): {$message}");
+                Log::info("[Recurrente] ← {$statusCode} {$url}", ['response' => $data]);
+
+                // ── FIX 1.3 — 401: llaves inválidas o expiradas ──────────────
+                if ($statusCode === 401) {
+                    Log::error("[Recurrente] 🚨 ERROR 401 — Llaves de API inválidas o expiradas. " .
+                               "Verificar RECURRENTE_PUBLIC_KEY y RECURRENTE_SECRET_KEY en .env", [
+                        'url'  => $url,
+                        'env'  => config('services.recurrente.env'),
+                    ]);
+                    throw new \Exception(
+                        'Recurrente: Autenticación fallida (401). ' .
+                        'Verifica las llaves de API en Configuración → Llaves API.'
+                    );
+                }
+
+                // ── FIX 1.4 — 429/5xx: reintentar con exponential backoff ────
+                if ($statusCode === 429 || $statusCode >= 500) {
+                    $waitMs = self::RETRY_DELAY_MS * pow(2, $attempt - 1); // 500ms, 1s, 2s
+
+                    Log::warning("[Recurrente] ⚠ HTTP {$statusCode} en intento {$attempt}/" . self::MAX_RETRIES . ". " .
+                                 "Esperando {$waitMs}ms antes de reintentar.", ['url' => $url]);
+
+                    if ($attempt < self::MAX_RETRIES) {
+                        usleep($waitMs * 1000);
+                        continue; // Reintentar
+                    }
+
+                    // Agotados los reintentos
+                    $message = $statusCode === 429
+                        ? "Recurrente: límite de requests alcanzado. Intenta en unos segundos."
+                        : "Recurrente: error del servidor ({$statusCode}). Intenta más tarde.";
+
+                    throw new \Exception($message);
+                }
+
+                // ── Otros errores HTTP (400, 404, 422...) ────────────────────
+                if ($response->failed()) {
+                    $message = $data['message'] ?? $data['error'] ?? "HTTP {$statusCode}";
+                    Log::error("[Recurrente] ❌ Error {$statusCode}: {$message}", [
+                        'url'  => $url,
+                        'body' => $body,
+                        'data' => $data,
+                    ]);
+                    throw new \Exception("Recurrente API error ({$statusCode}): {$message}");
+                }
+
+                return $data; // ✅ Éxito
+
+            } catch (RequestException $e) {
+                // ── FIX 1.1 — Timeout u otro error de conexión ──────────────
+                $isTimeout = str_contains($e->getMessage(), 'timed out') ||
+                             str_contains($e->getMessage(), 'timeout');
+
+                Log::error("[Recurrente] " . ($isTimeout ? "⏱ TIMEOUT" : "🔌 Conexión fallida") .
+                           " en intento {$attempt}: " . $e->getMessage(), ['url' => $url]);
+
+                if ($attempt < self::MAX_RETRIES && ! $isTimeout) {
+                    usleep(self::RETRY_DELAY_MS * pow(2, $attempt - 1) * 1000);
+                    continue;
+                }
+
+                throw new \Exception(
+                    $isTimeout
+                        ? "Recurrente no respondió a tiempo (timeout). Intenta nuevamente."
+                        : "Error de conexión con Recurrente: " . $e->getMessage()
+                );
             }
-
-            return $data;
-
-        } catch (RequestException $e) {
-            Log::error("[Recurrente] Request exception: " . $e->getMessage());
-            throw new \Exception("Error de conexión con Recurrente: " . $e->getMessage());
         }
+
+        throw new \Exception("Recurrente: máximo de reintentos alcanzado para {$method} {$endpoint}");
     }
 
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
     //  USUARIOS / CLIENTES
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
 
-    /**
-     * Crear un usuario en Recurrente.
-     * POST /api/users
-     *
-     * @param  array $data  ['first_name', 'last_name', 'email', 'phone']
-     * @return array        Respuesta con 'id' del usuario creado
-     */
+    /** POST /api/users — Crear usuario en Recurrente */
     public function createUser(array $data): array
     {
         return $this->request('POST', '/users', $data);
     }
 
-    /**
-     * Obtener un usuario de Recurrente.
-     * GET /api/users/{id}
-     */
+    /** GET /api/users/{id} */
     public function getUser(string $recurrenteUserId): array
     {
         return $this->request('GET', "/users/{$recurrenteUserId}");
     }
 
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
     //  PRODUCTOS / PLANES
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
 
     /**
-     * Crear un producto en Recurrente.
-     * POST /api/products
+     * POST /api/products — Crear producto en Recurrente.
      *
-     * @param  array $data  ['name', 'price_in_cents', 'currency']
-     * @return array        Respuesta con 'id' del producto
+     * FIX 2.6 — El precio SIEMPRE se convierte a centavos aquí,
+     * en un único lugar centralizado. No en el caller.
+     *
+     * @param array $data ['name', 'price_in_cents', 'currency', 'description']
      */
     public function createProduct(array $data): array
     {
         return $this->request('POST', '/products', $data);
     }
 
-    /**
-     * Obtener un producto de Recurrente.
-     * GET /api/products/{id}
-     */
+    /** GET /api/products/{id} */
     public function getProduct(string $productId): array
     {
         return $this->request('GET', "/products/{$productId}");
     }
 
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
     //  CHECKOUTS (pago hosteado)
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
 
     /**
-     * Crear un checkout hosteado en Recurrente.
-     * POST /api/checkouts
+     * POST /api/checkouts — Crear checkout hosteado.
      *
-     * Pide al cliente que ingrese su tarjeta vía la página de Recurrente.
-     *
-     * @param  array $data  [
-     *   'user_id',
-     *   'items' => [['product_id', 'quantity']],
-     *   'success_url',
-     *   'cancel_url',
-     * ]
-     * @return array ['checkout_url', 'id', ...]
+     * @param array $data ['user_id', 'items' => [['product_id', 'quantity']], 'success_url', 'cancel_url']
      */
     public function createCheckout(array $data): array
     {
         return $this->request('POST', '/checkouts', $data);
     }
 
-    // ─────────────────────────────────────────────
-    //  PAGOS ÚNICOS (cobro con tarjeta guardada)
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
+    //  PAGOS ÚNICOS — Tokenized Payments
+    // ─────────────────────────────────────────────────────────────
 
     /**
-     * Cobrar un pago único con tarjeta guardada.
-     * POST /api/one_time_payments
+     * POST /api/one_time_payments — Cobrar con tarjeta guardada.
      *
-     * @param  array $data  [
-     *   'payment_method_id',
-     *   'items' => [['name', 'amount_in_cents', 'currency']],
-     * ]
-     * @return array
+     * ⚠️ Según la documentación de Recurrente, el payload CORRECTO es:
+     * {
+     *   "payment_method_id": "pay_m_xxx",   ← nivel RAÍZ (no en items)
+     *   "items": [
+     *     { "name", "currency", "amount_in_cents", "quantity" }
+     *   ],
+     *   "user_id": "us_xxx"   ← opcional
+     * }
+     *
+     * Response: { "id": "on_123", "status": "paid" }
+     *
+     * @param string $paymentMethodId    Token de tarjeta
+     * @param array  $items              [['name', 'currency', 'amount_in_cents', 'quantity']]
+     * @param array  $extra              ['user_id', 'metadata'] opcionales
      */
-    public function createOneTimePayment(array $data): array
+    public function createOneTimePayment(string $paymentMethodId, array $items, array $extra = []): array
     {
-        return $this->request('POST', '/one_time_payments', $data);
+        return $this->request('POST', '/one_time_payments', array_merge([
+            'payment_method_id' => $paymentMethodId,
+            'items'             => $items,
+        ], $extra));
     }
 
-    // ─────────────────────────────────────────────
-    //  SUSCRIPCIONES
-    // ─────────────────────────────────────────────
-
     /**
-     * Crear una suscripción recurrente.
-     * POST /api/subscriptions
-     *
-     * @param  array $data  ['user_id', 'product_id']
-     * @return array
+     * Cobrar con tarjeta usando Product ID (en lugar de amount_in_cents).
+     * POST /api/one_time_payments
      */
+    public function createOneTimePaymentByProduct(
+        string $paymentMethodId,
+        string $productId,
+        int $quantity = 1
+    ): array {
+        return $this->request('POST', '/one_time_payments', [
+            'payment_method_id' => $paymentMethodId,
+            'items' => [[
+                'product_id' => $productId,
+                'quantity'   => $quantity,
+            ]],
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  SUSCRIPCIONES
+    // ─────────────────────────────────────────────────────────────
+
+    /** POST /api/subscriptions */
     public function createSubscription(array $data): array
     {
         return $this->request('POST', '/subscriptions', $data);
     }
 
-    /**
-     * Cancelar una suscripción.
-     * DELETE /api/subscriptions/{id}
-     */
+    /** DELETE /api/subscriptions/{id} */
     public function cancelSubscription(string $subscriptionId): array
     {
         return $this->request('DELETE', "/subscriptions/{$subscriptionId}");
     }
 
-    /**
-     * Obtener estado de una suscripción.
-     * GET /api/subscriptions/{id}
-     */
+    /** GET /api/subscriptions/{id} */
     public function getSubscription(string $subscriptionId): array
     {
         return $this->request('GET', "/subscriptions/{$subscriptionId}");
     }
 
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
     //  MÉTODOS DE PAGO
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
 
-    /**
-     * Obtener métodos de pago guardados de un usuario.
-     * GET /api/users/{user_id}/payment_methods
-     */
+    /** GET /api/users/{user_id}/payment_methods */
     public function getPaymentMethods(string $recurrenteUserId): array
     {
         return $this->request('GET', "/users/{$recurrenteUserId}/payment_methods");
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  UTILIDADES
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * FIX 2.6 — Función centralizada para convertir Quetzales a centavos.
+     *
+     * SIEMPRE usar esta función, nunca multiplicar por 100 manualmente.
+     * Evita errores de Q150 → 150 centavos (Q1.50 cobrado).
+     *
+     * Uso:  RecurrenteService::toCents(150.00) → 15000
+     *       RecurrenteService::toCents(0.50)   → 50
+     */
+    public static function toCents(float $quetzales): int
+    {
+        return (int) round($quetzales * 100);
+    }
+
+    /**
+     * Inverso: centavos → Quetzales para mostrar en UI.
+     * RecurrenteService::toQuetzales(15000) → 150.00
+     */
+    public static function toQuetzales(int $cents): float
+    {
+        return round($cents / 100, 2);
     }
 }

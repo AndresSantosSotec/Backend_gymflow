@@ -28,6 +28,8 @@ use App\Http\Controllers\Api\PaymentInstallmentController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\FingerprintStatusController;
 use App\Http\Controllers\Api\RecurrenteController;
+use App\Http\Controllers\Api\PagoAdelantoController;
+use App\Http\Controllers\Api\MembresiaLifecycleController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -187,18 +189,47 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Recurrente ─────────────────────────────────────────────────────────
     Route::prefix('pagos')->group(function () {
-        // Fase 3: Crear checkout hosteado (link de pago)
         Route::post('/checkout', [RecurrenteController::class, 'createCheckout']);
-        // Fase 4: Cobrar con tarjeta guardada
         Route::post('/cobrar', [RecurrenteController::class, 'chargeCard']);
-        // Historial de pagos de un cliente
         Route::get('/historial/{clientId}', [RecurrenteController::class, 'paymentHistory']);
+        Route::get('/estado/{clientId}', [RecurrenteController::class, 'clientPaymentStatus']);
+
+        // Pagos adelantados en efectivo/transferencia
+        Route::post('/adelanto', [PagoAdelantoController::class, 'registrarPagoAdelanto']);
+        Route::get('/adelanto/client/{clientId}', [PagoAdelantoController::class, 'estadoCuotas']);
+        Route::post('/adelanto/reactivar', [PagoAdelantoController::class, 'reactivarSuscripcion']);
+        // Fix 4.1 — Anulación de pago adelantado
+        Route::post('/adelanto/{logId}/revertir', [PagoAdelantoController::class, 'anularPagoAdelantado']);
+        // Fix 4.2 — Cálculo de reembolso
+        Route::get('/adelanto/{logId}/reembolso', [PagoAdelantoController::class, 'calcularReembolso']);
+        // Fix 4.3 — Cambio de plan con crédito de meses prepagados
+        Route::post('/adelanto/upgrade-plan', [PagoAdelantoController::class, 'cambiarPlan']);
+        // Fix 5.2 — Dashboard de alertas de conciliación
+        Route::get('/alertas', [PagoAdelantoController::class, 'listarAlertas']);
+        Route::patch('/alertas/{id}', [PagoAdelantoController::class, 'resolverAlerta']);
     });
 
     Route::prefix('suscripciones')->group(function () {
-        // Fase 5: Crear suscripción recurrente
         Route::post('/crear', [RecurrenteController::class, 'createSubscription']);
-        // Cancelar suscripción
         Route::delete('/{id}', [RecurrenteController::class, 'cancelSubscription']);
     });
+
+    // ── Ciclo de vida avanzado de membresías ──────────────────────────────
+    Route::prefix('membresias')->group(function () {
+        // Dashboard de riesgo (Caso 1 — admin)
+        Route::get('/riesgo', [MembresiaLifecycleController::class, 'riesgo']);
+
+        // Caso 2 — Pausar
+        Route::post('/pausar', [MembresiaLifecycleController::class, 'pausar']);
+        Route::get('/pausar/impacto', [MembresiaLifecycleController::class, 'calcularImpacto']);
+        Route::post('/pausar/{id}/cancelar', [MembresiaLifecycleController::class, 'cancelarPausa']);
+
+        // Caso 4 — Volver a tarjeta tras efectivo
+        Route::post('/reactivar-tarjeta', [MembresiaLifecycleController::class, 'reactivarTarjeta']);
+
+        // Reactivación manual at_risk + toggle wants_renewal
+        Route::post('/{id}/reactivar', [MembresiaLifecycleController::class, 'reactivarManual']);
+        Route::put('/{id}/wants-renewal', [MembresiaLifecycleController::class, 'toggleWantsRenewal']);
+    });
 });
+
