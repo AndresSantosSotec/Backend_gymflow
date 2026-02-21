@@ -36,6 +36,7 @@ Route::get('/public/plans', [MembershipPlanController::class, 'publicPlans']);
 Route::get('/public/plans/{slug}', [MembershipPlanController::class, 'publicPlanBySlug']);
 Route::get('/public/products', [ProductController::class, 'publicIndex']);
 Route::get('/public/fingerprint-clients', [ClientController::class, 'getFingerprintClients']);
+Route::post('/public/leads', [LeadController::class, 'publicStore']);
 
 // Access verification (Public for Kiosk/Identifier)
 Route::post('/access/verify-qr', [AccessLogController::class, 'verifyQR']);
@@ -109,31 +110,38 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Receipts (Recibos y Facturas)
-    Route::apiResource('receipts', ReceiptController::class);
     Route::prefix('receipts')->group(function () {
+        // Specific routes BEFORE resource (to avoid conflicts)
         Route::get('/client/{clientId}', [ReceiptController::class, 'byClient']);
         Route::get('/statistics/all', [ReceiptController::class, 'statistics']);
-        Route::post('/{id}/invoice', [ReceiptController::class, 'createInvoice']);
-        Route::post('/{id}/send-email', [ReceiptController::class, 'sendEmail']);
-        Route::post('/{id}/mark-paid', [ReceiptController::class, 'markAsPaid']);
+        Route::get('/report/pdf', [ReceiptController::class, 'report']);
         Route::post('/from-payment', [ReceiptController::class, 'createFromPayment']);
         Route::post('/bulk-export', [ReceiptController::class, 'bulkExport']);
+        Route::post('/bulk-download', [ReceiptController::class, 'bulkDownloadReceipts']);
 
         // PDF Endpoints
         Route::get('/{id}/download/receipt', [ReceiptController::class, 'downloadReceiptPdf']);
         Route::get('/{id}/download/invoice', [ReceiptController::class, 'downloadInvoicePdf']);
+        Route::get('/{id}/download/ticket', [ReceiptController::class, 'downloadTicket']);
         Route::post('/{id}/generate-invoice-pdf', [ReceiptController::class, 'generateAndDownloadInvoice']);
         Route::post('/{id}/email-pdf', [ReceiptController::class, 'emailReceiptPdf']);
-        Route::post('/bulk-download', [ReceiptController::class, 'bulkDownloadReceipts']);
+        Route::post('/{id}/invoice', [ReceiptController::class, 'createInvoice']);
+        Route::post('/{id}/send-email', [ReceiptController::class, 'sendEmail']);
+        Route::post('/{id}/mark-paid', [ReceiptController::class, 'markAsPaid']);
 
         // Preview Endpoints
         Route::get('/{id}/preview/receipt', [ReceiptController::class, 'previewReceipt']);
         Route::get('/{id}/preview/invoice', [ReceiptController::class, 'previewInvoice']);
+        Route::get('/{id}/preview/ticket', [ReceiptController::class, 'previewTicket']);
+
+        // Resource routes LAST (for /{id} pattern matching)
+        Route::apiResource('', ReceiptController::class, ['as' => 'receipts']);
     });
 
-    // Leads special routes
-    Route::post('/leads/{id}/convert', [LeadController::class, 'convertToClient']);
+
+    // Leads special routes (BEFORE apiResource to avoid conflicts)
     Route::get('/leads/statistics/all', [LeadController::class, 'statistics']);
+    Route::post('/leads/{id}/convert', [LeadController::class, 'convertToClient']);
 
     // Site Settings
     Route::post('/site-settings', [SiteSettingController::class, 'store']);

@@ -1,434 +1,173 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Factura {{ $receipt->invoice_number }}</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Arial', sans-serif;
-            color: #222;
-            line-height: 1.5;
-            background-color: #fff;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: white;
-        }
-
-        .watermark {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 120px;
-            opacity: 0.05;
-            z-index: -1;
-            color: #1e40af;
-        }
-
-        .header-invoice {
-            display: grid;
-            grid-template-columns: 60% 40%;
-            gap: 30px;
-            border-bottom: 3px solid #1e40af;
-            padding-bottom: 20px;
-            margin-bottom: 20px;
-        }
-
-        .company-logo-section h1 {
-            color: #1e40af;
-            font-size: 32px;
-            margin-bottom: 5px;
-            font-weight: 900;
-        }
-
-        .company-logo-section .subtitle {
-            color: #666;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .company-details {
-            font-size: 11px;
-            color: #555;
-            margin-top: 10px;
-            line-height: 1.6;
-        }
-
-        .invoice-details {
-            text-align: right;
-        }
-
-        .invoice-type {
-            background-color: #1e40af;
-            color: white;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
-
-        .invoice-type h2 {
-            font-size: 28px;
-            margin: 0 0 5px 0;
-        }
-
-        .invoice-meta {
-            font-size: 11px;
-            color: #666;
-            line-height: 1.8;
-        }
-
-        .invoice-meta strong {
-            display: inline-block;
-            width: 80px;
-        }
-
-        .parties-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-            font-size: 11px;
-        }
-
-        .party-box {
-            border: 1px solid #ddd;
-            padding: 15px;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-        }
-
-        .party-box h3 {
-            color: #1e40af;
-            font-size: 12px;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            border-bottom: 2px solid #1e40af;
-            padding-bottom: 8px;
-        }
-
-        .party-box p {
-            margin: 5px 0;
-            line-height: 1.5;
-        }
-
-        .party-box strong {
-            color: #222;
-        }
-
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 30px;
-            font-size: 11px;
-        }
-
-        .items-table thead {
-            background-color: #1e40af;
-            color: white;
-        }
-
-        .items-table th {
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            border: 1px solid #1e40af;
-        }
-
-        .items-table td {
-            padding: 12px;
-            border: 1px solid #ddd;
-            vertical-align: middle;
-        }
-
-        .items-table tbody tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-
-        .text-right {
-            text-align: right;
-        }
-
-        .text-center {
-            text-align: center;
-        }
-
-        .totals-box {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 30px;
-        }
-
-        .totals-table {
-            width: 350px;
-            font-size: 11px;
-        }
-
-        .totals-table .row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .totals-table .row.total {
-            border-top: 2px solid #1e40af;
-            border-bottom: 2px solid #1e40af;
-            font-weight: 900;
-            font-size: 14px;
-            color: #1e40af;
-            padding: 12px 0;
-            background-color: #f0f5ff;
-        }
-
-        .totals-table .row.subtotal,
-        .totals-table .row.tax,
-        .totals-table .row.discount {
-            font-weight: 600;
-        }
-
-        .payment-terms {
-            background-color: #e7f3ff;
-            border-left: 4px solid #1e40af;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 3px;
-            font-size: 11px;
-        }
-
-        .payment-terms h4 {
-            color: #1e40af;
-            margin-bottom: 8px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .payment-terms p {
-            margin: 5px 0;
-        }
-
-        .notes-section {
-            background-color: #f9f9f9;
-            border-left: 4px solid #666;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 3px;
-            font-size: 11px;
-        }
-
-        .notes-section h4 {
-            color: #333;
-            margin-bottom: 8px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .footer-invoice {
-            border-top: 2px solid #ddd;
-            padding-top: 20px;
-            margin-top: 30px;
-            text-align: center;
-            font-size: 10px;
-            color: #666;
-            line-height: 1.6;
-        }
-
-        .qr-section {
-            text-align: center;
-            margin: 20px 0;
-            font-size: 10px;
-        }
-
-        .document-info {
-            background-color: #f0f5ff;
-            border: 1px solid #1e40af;
-            padding: 12px;
-            margin-bottom: 20px;
-            border-radius: 3px;
-            font-size: 10px;
-            color: #1e40af;
-        }
-
-        .document-info strong {
-            color: #1e40af;
-        }
-
-        @media print {
-            body {
-                margin: 0;
-                padding: 0;
-            }
-            .container {
-                max-width: 100%;
-                padding: 0;
-            }
-            .watermark {
-                display: block;
-            }
-        }
+        @page { margin: 18mm 15mm 15mm 15mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'DejaVu Sans', sans-serif; color: #222; font-size: 9px; line-height: 1.4; }
+        .header { width: 100%; border-bottom: 2px solid #333; margin-bottom: 10px; padding-bottom: 6px; }
+        .header td { vertical-align: top; }
+        .company-name { font-size: 18px; font-weight: bold; margin-bottom: 2px; }
+        .company-sub { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #555; }
+        .company-detail { font-size: 8px; color: #555; margin: 1px 0; }
+        .inv-box { background-color: #333; color: #fff; padding: 8px; text-align: center; margin-bottom: 6px; }
+        .inv-box h2 { font-size: 18px; margin: 0; }
+        .inv-meta { font-size: 8px; color: #555; text-align: right; }
+        .inv-meta p { margin: 2px 0; }
+        .parties { width: 100%; margin-bottom: 10px; }
+        .parties td { width: 50%; vertical-align: top; padding: 0 3px; }
+        .party { border: 1px solid #ccc; padding: 8px; font-size: 8px; }
+        .party h3 { font-size: 9px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #ccc; padding-bottom: 3px; margin-bottom: 4px; }
+        .party p { margin: 2px 0; }
+        .items { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        .items th { background-color: #333; color: #fff; padding: 5px 6px; text-align: left; font-size: 8px; }
+        .items td { padding: 5px 6px; border-bottom: 1px solid #ddd; font-size: 8px; }
+        .items .r { text-align: right; }
+        .items .c { text-align: center; }
+        .totals-wrap { width: 100%; margin-bottom: 10px; }
+        .totals { width: 240px; margin-left: auto; border-collapse: collapse; }
+        .totals td { padding: 4px 6px; font-size: 9px; border-bottom: 1px solid #ddd; }
+        .totals .lbl { font-weight: bold; }
+        .totals .val { text-align: right; }
+        .totals tr.grand td { border-top: 2px solid #333; border-bottom: 2px solid #333; font-size: 12px; font-weight: bold; padding: 5px 6px; }
+        .info-box { padding: 6px 8px; margin-bottom: 6px; font-size: 8px; border-left: 3px solid #333; background: #f5f5f5; }
+        .info-box h4 { font-size: 9px; font-weight: bold; margin-bottom: 3px; }
+        .footer { border-top: 1px solid #ccc; padding-top: 6px; text-align: center; font-size: 7px; color: #888; }
     </style>
 </head>
 <body>
-    <div class="watermark">FACTURA</div>
-
-    <div class="container">
-        <!-- Header -->
-        <div class="header-invoice">
-            <div class="company-logo-section">
-                <h1>{{ $companyName }}</h1>
-                <p class="subtitle">Factura Electrónica</p>
-                <div class="company-details">
-                    <p><strong>RFC/Impuesto:</strong> {{ $companyTax }}</p>
-                    <p><strong>Dirección:</strong> {{ $companyAddress }}</p>
-                    <p><strong>Teléfono:</strong> {{ $companyPhone }}</p>
-                    <p><strong>Email:</strong> {{ $companyEmail }}</p>
-                </div>
-            </div>
-
-            <div class="invoice-details">
-                <div class="invoice-type">
+    <table class="header" cellpadding="0" cellspacing="0">
+        <tr>
+            <td style="width:58%;">
+                <div class="company-name">{{ $companyName }}</div>
+                <p class="company-sub">Factura Electronica</p>
+                <p class="company-detail"><strong>NIT:</strong> {{ $companyTax }}</p>
+                <p class="company-detail">{{ $companyAddress }}</p>
+                <p class="company-detail">Tel: {{ $companyPhone }} | {{ $companyEmail }}</p>
+            </td>
+            <td style="width:42%;">
+                <div class="inv-box">
                     <h2>FACTURA</h2>
-                    <p style="margin: 0;">Electrónica</p>
                 </div>
-
-                <div class="invoice-meta">
-                    <p><strong>No. Factura:</strong> {{ $receipt->invoice_number }}</p>
-                    <p><strong>Fecha Emisión:</strong> {{ $receipt->invoiced_at->format('d/m/Y') }}</p>
-                    <p><strong>Fecha Vencimiento:</strong> {{ $receipt->invoiced_at->addDays(30)->format('d/m/Y') }}</p>
-                    <p><strong>Estado:</strong> <span style="color: #28a745; font-weight: bold;">✓ {{ strtoupper($receipt->status) }}</span></p>
+                <div class="inv-meta">
+                    <p><strong>No.:</strong> {{ $receipt->invoice_number }}</p>
+                    <p><strong>Emision:</strong> {{ $receipt->invoiced_at ? \Carbon\Carbon::parse($receipt->invoiced_at)->format('d/m/Y') : now()->format('d/m/Y') }}</p>
+                    <p><strong>Vence:</strong> {{ $receipt->invoiced_at ? \Carbon\Carbon::parse($receipt->invoiced_at)->addDays(30)->format('d/m/Y') : 'N/A' }}</p>
+                    <p><strong>Estado:</strong> {{ strtoupper($receipt->status) }}</p>
                 </div>
-            </div>
-        </div>
+            </td>
+        </tr>
+    </table>
 
-        <!-- Partes (Empresa y Cliente) -->
-        <div class="parties-section">
-            <div class="party-box">
-                <h3>Empresa Proveedora</h3>
-                <p><strong>Razón Social:</strong> {{ $companyName }}</p>
-                <p><strong>RFC:</strong> {{ $companyTax }}</p>
-                <p><strong>Domicilio:</strong> {{ $companyAddress }}</p>
-                <p><strong>Teléfono:</strong> {{ $companyPhone }}</p>
-                <p><strong>Email:</strong> {{ $companyEmail }}</p>
-            </div>
-
-            <div class="party-box">
-                <h3>Cliente / Receptor</h3>
-                <p><strong>Nombre:</strong> {{ $receipt->client->full_name ?? 'No especificado' }}</p>
-                <p><strong>DNI/RFC:</strong> {{ $receipt->client->dni ?? 'No disponible' }}</p>
-                <p><strong>Email:</strong> {{ $receipt->client->email ?? 'No disponible' }}</p>
-                <p><strong>Teléfono:</strong> {{ $receipt->client->phone ?? 'No disponible' }}</p>
-                <p><strong>Dirección:</strong> {{ $receipt->client->address ?? 'No disponible' }}</p>
-            </div>
-        </div>
-
-        <!-- Items de la Factura -->
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th style="width: 50%;">Concepto</th>
-                    <th style="width: 15%;" class="text-center">Cantidad</th>
-                    <th style="width: 17%;" class="text-right">Valor Unitario</th>
-                    <th style="width: 18%;" class="text-right">Subtotal</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>
-                        <strong>{{ ucfirst(str_replace('_', ' ', $receipt->payment_type)) }}</strong><br>
-                        <small>{{ $receipt->description ?? 'Pago de servicios' }}</small>
-                    </td>
-                    <td class="text-center">1</td>
-                    <td class="text-right">${{ number_format($receipt->subtotal, 2) }}</td>
-                    <td class="text-right">${{ number_format($receipt->subtotal, 2) }}</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <!-- Totales -->
-        <div class="totals-box">
-            <div class="totals-table">
-                <div class="row subtotal">
-                    <span>Subtotal:</span>
-                    <span>${{ number_format($receipt->subtotal, 2) }}</span>
+    <table class="parties" cellpadding="0" cellspacing="0">
+        <tr>
+            <td>
+                <div class="party">
+                    <h3>Empresa</h3>
+                    <p><strong>{{ $companyName }}</strong></p>
+                    <p>NIT: {{ $companyTax }}</p>
+                    <p>{{ $companyAddress }}</p>
+                    <p>{{ $companyPhone }}</p>
                 </div>
-                @if($receipt->discount > 0)
-                <div class="row">
-                    <span style="color: #28a745;">Descuento (-):</span>
-                    <span style="color: #28a745;">-${{ number_format($receipt->discount, 2) }}</span>
+            </td>
+            <td>
+                <div class="party">
+                    <h3>Cliente</h3>
+                    <p><strong>{{ $receipt->client->full_name ?? ($receipt->client->first_name . ' ' . $receipt->client->last_name) }}</strong></p>
+                    @if($receipt->client->nit)
+                    <p>NIT: {{ $receipt->client->nit }}</p>
+                    @endif
+                    <p>DPI: {{ $receipt->client->dni ?? '-' }}</p>
+                    <p>Email: {{ $receipt->client->email ?? '-' }}</p>
+                    <p>Tel: {{ $receipt->client->phone ?? '-' }}</p>
+                    @if($receipt->client->fiscal_address)
+                    <p>Dir. Fiscal: {{ $receipt->client->fiscal_address }}</p>
+                    @endif
                 </div>
-                @endif
-                @if($receipt->tax > 0)
-                <div class="row tax">
-                    <span>IVA / Impuesto (+):</span>
-                    <span>${{ number_format($receipt->tax, 2) }}</span>
-                </div>
-                @endif
-                <div class="row total">
-                    <span>TOTAL A PAGAR:</span>
-                    <span>${{ number_format($receipt->total, 2) }}</span>
-                </div>
-            </div>
-        </div>
+            </td>
+        </tr>
+    </table>
 
-        <!-- Información de Pago -->
-        <div class="payment-terms">
-            <h4>Condiciones de Pago</h4>
-            <p><strong>Método de Pago:</strong> {{ ucfirst($receipt->payment->payment_method ?? 'No especificado') }}</p>
-            <p><strong>Estado de Pago:</strong>
-                @if($receipt->status === 'paid')
-                    <span style="color: #28a745; font-weight: bold;">✓ PAGADO el {{ $receipt->paid_at->format('d/m/Y') }}</span>
-                @elseif($receipt->status === 'pending')
-                    <span style="color: #ffc107; font-weight: bold;">⧗ PENDIENTE - Fecha vencimiento: {{ $receipt->invoiced_at->addDays(30)->format('d/m/Y') }}</span>
-                @endif
-            </p>
-            @if($receipt->membership)
-            <p><strong>Membresía/Plan:</strong> {{ $receipt->membership->name ?? 'N/A' }}</p>
+    @php
+        $planName = optional(optional($receipt->membership)->plan)->name;
+    @endphp
+
+    <table class="items">
+        <thead>
+            <tr>
+                <th style="width:50%;">Concepto</th>
+                <th class="c" style="width:12%;">Cant.</th>
+                <th class="r" style="width:19%;">Unitario</th>
+                <th class="r" style="width:19%;">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <strong>{{ ucfirst(str_replace('_', ' ', $receipt->payment_type ?? 'Pago')) }}</strong>
+                    @if($planName) - {{ $planName }} @endif
+                    <br><small style="color:#666;">{{ $receipt->description ?? 'Pago de servicios' }}</small>
+                </td>
+                <td class="c">1</td>
+                <td class="r">Q{{ number_format($receipt->subtotal ?? 0, 2) }}</td>
+                <td class="r">Q{{ number_format($receipt->subtotal ?? 0, 2) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="totals-wrap">
+        <table class="totals">
+            <tr>
+                <td class="lbl">Subtotal:</td>
+                <td class="val">Q{{ number_format($receipt->subtotal ?? 0, 2) }}</td>
+            </tr>
+            @if(($receipt->discount ?? 0) > 0)
+            <tr>
+                <td class="lbl">Descuento:</td>
+                <td class="val">-Q{{ number_format($receipt->discount, 2) }}</td>
+            </tr>
             @endif
-        </div>
+            @if(($receipt->tax ?? 0) > 0)
+            <tr>
+                <td class="lbl">IVA:</td>
+                <td class="val">Q{{ number_format($receipt->tax, 2) }}</td>
+            </tr>
+            @endif
+            <tr class="grand">
+                <td class="lbl">TOTAL:</td>
+                <td class="val">Q{{ number_format($receipt->total ?? 0, 2) }}</td>
+            </tr>
+        </table>
+    </div>
 
-        <!-- Notas Fiscales -->
-        @if($receipt->invoice_notes)
-        <div class="notes-section">
-            <h4>Notas:</h4>
-            <p>{{ $receipt->invoice_notes }}</p>
-        </div>
+    <div class="info-box">
+        <h4>Pago</h4>
+        <p>Metodo: {{ ucfirst(optional($receipt->payment)->payment_method ?? 'N/A') }}</p>
+        <p>Estado:
+            @if($receipt->status === 'paid')
+                <strong>PAGADO</strong> {{ $receipt->paid_at ? '- ' . \Carbon\Carbon::parse($receipt->paid_at)->format('d/m/Y') : '' }}
+            @else
+                <strong>PENDIENTE</strong>
+            @endif
+        </p>
+        @if($planName)
+            <p>Plan: {{ $planName }}</p>
         @endif
+    </div>
 
-        <!-- Información del Documento -->
-        <div class="document-info">
-            <strong>📄 Información del Documento</strong><br>
-            Factura Electrónica Generada Automáticamente<br>
-            Sistema: GymFlow | ID Factura: {{ $receipt->id }}<br>
-            Generada: {{ now()->format('d/m/Y H:i:s') }}
-        </div>
+    @if($receipt->invoice_notes)
+    <div class="info-box">
+        <h4>Notas</h4>
+        <p>{{ $receipt->invoice_notes }}</p>
+    </div>
+    @endif
 
-        <!-- Footer -->
-        <div class="footer-invoice">
-            <p style="margin-bottom: 15px; font-weight: 600;">
-                {{ $companyName }}<br>
-                RFC: {{ $companyTax }}
-            </p>
-            <p>
-                Esta factura es comprobante fiscal electrónico válido.<br>
-                Para verificar su autenticidad, visite: www.gymflow.local/verify
-            </p>
-            <p style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-                Gracias por su confianza y preferencia<br>
-                Para consultas: {{ $companyEmail }}
-            </p>
-        </div>
+    <div class="footer">
+        {{ $companyName }} | NIT: {{ $companyTax }} | Factura electronica generada automaticamente<br>
+        Generada: {{ now()->format('d/m/Y H:i') }} | ID: {{ $receipt->id }}<br>
+        Gracias por su confianza | {{ $companyEmail }}
     </div>
 </body>
 </html>

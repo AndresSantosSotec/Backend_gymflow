@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PaymentInstallment;
 use App\Models\Payment;
 use App\Models\Membership;
+use App\Models\Receipt;
 use Illuminate\Http\Request;
 
 class PaymentInstallmentController extends Controller
@@ -91,8 +92,8 @@ class PaymentInstallmentController extends Controller
             'amount' => $payAmount,
             'payment_method' => $validated['payment_method'],
             'status' => 'completed',
-            'transaction_id' => $validated['reference'] ?? null,
-            'notes' => ($validated['notes'] ?? '') . " [Cuota #{$installment->installment_number}]",
+            'transaction_id' => $request->input('reference'),
+            'notes' => ($request->input('notes') ?? '') . " [Cuota #{$installment->installment_number}]",
             'paid_at' => now(),
         ]);
 
@@ -111,6 +112,13 @@ class PaymentInstallmentController extends Controller
 
         // Recalculate membership payment status
         $installment->membership->recalculatePaymentStatus();
+
+        // Auto-generate receipt for installment payment
+        try {
+            Receipt::createFromPaymentAuto($payment, 'subscription', $installment->membership_id);
+        } catch (\Exception $e) {
+            //\Log::warning('Auto-receipt failed for installment payment #' . $payment->id . ': ' . $e->getMessage());
+        }
 
         return response()->json([
             'installment' => $installment->fresh()->load(['membership.plan', 'client', 'payment']),

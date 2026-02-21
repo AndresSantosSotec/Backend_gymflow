@@ -22,4 +22,9 @@ class Venta extends Model
     {
         return $this->hasMany(PagoVenta::class);
     }
+
+    public function receipt()
+    {
+        return $this->hasOne(Receipt::class);
+    }
 }

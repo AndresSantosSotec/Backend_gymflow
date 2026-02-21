@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Models\Receipt;
 use Illuminate\Http\Request;
 
 class PaymentController extends Controller
@@ -52,6 +53,13 @@ class PaymentController extends Controller
         }
 
         $payment = Payment::create($validated);
+
+        // Auto-generate receipt
+        try {
+            Receipt::createFromPaymentAuto($payment, 'individual_payment');
+        } catch (\Exception $e) {
+            \Log::warning('Auto-receipt generation failed for payment #' . $payment->id . ': ' . $e->getMessage());
+        }
 
         return response()->json($payment->load(['client', 'membership']), 201);
     }

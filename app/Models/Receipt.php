@@ -192,4 +192,61 @@ class Receipt extends Model
     {
         return $query->where('is_invoiced', true);
     }
+
+    /**
+     * Auto-create a receipt from a Payment.
+     * Call this every time a payment is recorded so we always have a receipt.
+     */
+    public static function createFromPaymentAuto(Payment $payment, string $paymentType = 'individual_payment', ?int $membershipId = null): self
+    {
+        // Avoid duplicate receipts for the same payment
+        $existing = self::where('payment_id', $payment->id)->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        return self::create([
+            'client_id'      => $payment->client_id,
+            'payment_id'     => $payment->id,
+            'membership_id'  => $membershipId ?? $payment->membership_id,
+            'receipt_number'  => self::generateReceiptNumber(),
+            'type'           => 'receipt',
+            'payment_type'   => $paymentType,
+            'subtotal'       => $payment->amount,
+            'tax'            => 0,
+            'discount'       => 0,
+            'total'          => $payment->amount,
+            'status'         => $payment->status === 'completed' ? 'paid' : 'pending',
+            'paid_at'        => $payment->paid_at,
+            'description'    => $payment->notes,
+        ]);
+    }
+
+    /**
+     * Auto-create a receipt from a Venta (Sale).
+     * Call this every time a sale is completed so we always have a receipt.
+     */
+    public static function createFromVentaAuto(Venta $venta): self
+    {
+        // Avoid duplicate receipts for the same sale
+        $existing = self::where('venta_id', $venta->id)->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        return self::create([
+            'client_id'      => $venta->cliente?->id ?? null,
+            'venta_id'       => $venta->id,
+            'receipt_number' => self::generateReceiptNumber(),
+            'type'           => 'receipt',
+            'payment_type'   => 'product',
+            'subtotal'       => $venta->total,
+            'tax'            => 0,
+            'discount'       => 0,
+            'total'          => $venta->total,
+            'status'         => $venta->estado === 'PAGADA' ? 'paid' : 'pending',
+            'paid_at'        => $venta->estado === 'PAGADA' ? now() : null,
+            'description'    => 'Venta de Productos/POS',
+        ]);
+    }
 }

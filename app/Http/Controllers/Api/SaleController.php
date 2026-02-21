@@ -8,6 +8,7 @@ use App\Models\VentaDetalle;
 use App\Models\PagoVenta;
 use App\Models\Producto;
 use App\Models\MovimientoInventario;
+use App\Models\Receipt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +19,7 @@ class SaleController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Venta::with(['cliente', 'detalles.producto', 'pagos.metodoPago']);
+        $query = Venta::with(['cliente', 'detalles.producto', 'pagos.metodoPago', 'receipt']);
         
         if ($request->has('estado')) {
             $query->where('estado', $request->estado);
@@ -98,7 +99,15 @@ class SaleController extends Controller
                     }
                 }
 
-                return $venta->load(['cliente', 'detalles.producto', 'pagos.metodoPago']);
+                if ($venta->estado !== 'COTIZACION') {
+                    try {
+                        Receipt::createFromVentaAuto($venta);
+                    } catch (\Exception $e) {
+                        \Log::warning('Auto-receipt failed for sale #' . $venta->id . ': ' . $e->getMessage());
+                    }
+                }
+
+                return $venta->load(['cliente', 'detalles.producto', 'pagos.metodoPago', 'receipt']);
             });
 
             return response()->json($result, 201);
@@ -112,7 +121,7 @@ class SaleController extends Controller
      */
     public function show(Venta $venta)
     {
-        return response()->json($venta->load(['cliente', 'detalles.producto', 'pagos.metodoPago']));
+        return response()->json($venta->load(['cliente', 'detalles.producto', 'pagos.metodoPago', 'receipt']));
     }
 
     /**
@@ -158,7 +167,13 @@ class SaleController extends Controller
                     $venta->estado = 'PAGADA';
                     $venta->save();
 
-                    return $venta->load(['cliente', 'detalles.producto', 'pagos.metodoPago']);
+                    try {
+                        Receipt::createFromVentaAuto($venta);
+                    } catch (\Exception $e) {
+                         \Log::warning('Auto-receipt failed for sale #' . $venta->id . ': ' . $e->getMessage());
+                    }
+
+                    return $venta->load(['cliente', 'detalles.producto', 'pagos.metodoPago', 'receipt']);
                 });
 
                 return response()->json($result);
@@ -167,6 +182,6 @@ class SaleController extends Controller
             }
         }
         
-        return response()->json($venta->load(['cliente', 'detalles.producto', 'pagos.metodoPago']));
+        return response()->json($venta->load(['cliente', 'detalles.producto', 'pagos.metodoPago', 'receipt']));
     }
 }

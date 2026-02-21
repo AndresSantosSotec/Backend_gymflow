@@ -89,13 +89,16 @@ class ClientController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:clients,email',
             'phone' => 'nullable|string|max:20',
             'phone_secondary' => 'nullable|string|max:20',
             'dni' => 'nullable|string|unique:clients,dni',
+            'nit' => 'nullable|string',
+            'company_name' => 'nullable|string',
+            'fiscal_address' => 'nullable|string',
             'birth_date' => 'nullable|date',
             'gender' => 'nullable|in:M,F,other',
             'address' => 'nullable|string',
@@ -108,6 +111,12 @@ class ClientController extends Controller
             'medical_conditions' => 'nullable|string',
             'referral_source' => 'nullable|string|max:255',
         ]);
+
+        if ($validator->fails()) {
+            \Illuminate\Support\Facades\Log::error('Client Validation Failed', $validator->errors()->toArray());
+        }
+
+        $validated = $validator->validate();
 
         $validated['qr_code'] = 'GYM-' . Str::upper(Str::random(10));
         $validated['status'] = 'active';
@@ -160,6 +169,9 @@ class ClientController extends Controller
             'phone' => 'nullable|string|max:20',
             'phone_secondary' => 'nullable|string|max:20',
             'dni' => 'nullable|string|unique:clients,dni,' . $id,
+            'nit' => 'nullable|string',
+            'company_name' => 'nullable|string',
+            'fiscal_address' => 'nullable|string',
             'birth_date' => 'nullable|date',
             'gender' => 'nullable|in:M,F,other',
             'address' => 'nullable|string',

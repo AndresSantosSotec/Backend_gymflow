@@ -61,6 +61,44 @@ class LeadController extends Controller
     }
 
     /**
+     * Public endpoint for lead creation from website (no auth required).
+     */
+    public function publicStore(Request $request)
+    {
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'required|string|max:20',
+            'plan_slug' => 'nullable|string|max:255',
+            'preferred_payment_method' => 'nullable|in:cash,card,transfer',
+        ]);
+
+        $validated['status'] = 'new';
+        $validated['source'] = 'website';
+        $validated['last_name'] = $validated['last_name'] ?? '';
+
+        // Check for duplicate by phone in last 24h to prevent spam
+        $recentDuplicate = Lead::where('phone', $validated['phone'])
+            ->where('created_at', '>=', now()->subDay())
+            ->first();
+
+        if ($recentDuplicate) {
+            return response()->json([
+                'message' => 'Ya enviaste una solicitud recientemente. Te contactaremos pronto.',
+                'lead' => $recentDuplicate,
+            ], 200);
+        }
+
+        $lead = Lead::create($validated);
+
+        return response()->json([
+            'message' => 'Solicitud recibida exitosamente',
+            'lead' => $lead,
+        ], 201);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(string $id)

@@ -17,11 +17,19 @@ class ReceiptController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Receipt::with(['client', 'payment', 'membership', 'venta']);
+        $query = Receipt::with(['client', 'payment', 'membership.plan', 'venta']);
 
         // Filtros
         if ($request->has('client_id')) {
             $query->where('client_id', $request->client_id);
+        }
+
+        if ($request->has('payment_id')) {
+            $query->where('payment_id', $request->payment_id);
+        }
+
+        if ($request->has('venta_id')) {
+            $query->where('venta_id', $request->venta_id);
         }
 
         if ($request->has('status')) {
@@ -428,7 +436,7 @@ class ReceiptController extends Controller
     public function previewReceipt(string $id)
     {
         try {
-            $receipt = Receipt::with(['client', 'payment', 'membership', 'venta'])->findOrFail($id);
+            $receipt = Receipt::with(['client', 'payment', 'membership.plan', 'venta'])->findOrFail($id);
 
             $companyName = config('app.name', 'GymFlow');
             $companyAddress = config('site.company_address', 'Dirección no configurada');
@@ -456,7 +464,7 @@ class ReceiptController extends Controller
     public function previewInvoice(string $id)
     {
         try {
-            $receipt = Receipt::with(['client', 'payment', 'membership', 'venta'])->findOrFail($id);
+            $receipt = Receipt::with(['client', 'payment', 'membership.plan', 'venta'])->findOrFail($id);
 
             if (!$receipt->is_invoiced) {
                 return response()->json([
@@ -482,6 +490,110 @@ class ReceiptController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to preview invoice',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Download thermal ticket PDF (80mm)
+     */
+    public function downloadTicket(string $id)
+    {
+        try {
+            $receipt = Receipt::findOrFail($id);
+            $pdfService = new ReceiptPdfService();
+
+            return $pdfService->downloadTicketPdf($receipt);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to generate ticket',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get ticket HTML for direct browser printing
+     */
+    public function previewTicket(string $id)
+    {
+        try {
+            $receipt = Receipt::findOrFail($id);
+            $pdfService = new ReceiptPdfService();
+
+            $html = $pdfService->getTicketHtml($receipt);
+
+            return response($html)->header('Content-Type', 'text/html');
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to preview ticket',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate general receipts report PDF with filters
+     */
+    public function report(Request $request)
+    {
+        try {
+            $query = Receipt::with(['client', 'payment', 'membership.plan', 'venta']);
+            $appliedFilters = [];
+
+            // Date range filter
+            if ($request->has('date_from') && $request->date_from) {
+                $query->whereDate('created_at', '>=', $request->date_from);
+                $appliedFilters['Desde'] = $request->date_from;
+            }
+
+            if ($request->has('date_to') && $request->date_to) {
+                $query->whereDate('created_at', '<=', $request->date_to);
+                $appliedFilters['Hasta'] = $request->date_to;
+            }
+
+            // Status filter
+            if ($request->has('status') && $request->status) {
+                $query->where('status', $request->status);
+                $labels = ['paid' => 'Pagado', 'pending' => 'Pendiente', 'cancelled' => 'Cancelado', 'draft' => 'Borrador'];
+                $appliedFilters['Estado'] = $labels[$request->status] ?? $request->status;
+            }
+
+            // Payment type filter
+            if ($request->has('payment_type') && $request->payment_type) {
+                $query->where('payment_type', $request->payment_type);
+                $labels = ['subscription' => 'Membresia', 'individual_payment' => 'Pago individual', 'course' => 'Curso', 'product' => 'Producto'];
+                $appliedFilters['Tipo'] = $labels[$request->payment_type] ?? $request->payment_type;
+            }
+
+            // Payment method filter
+            if ($request->has('payment_method') && $request->payment_method) {
+                $query->whereHas('payment', function ($q) use ($request) {
+                    $q->where('payment_method', $request->payment_method);
+                });
+                $appliedFilters['Metodo'] = ucfirst($request->payment_method);
+            }
+
+            // Invoiced filter
+            if ($request->has('is_invoiced')) {
+                $query->where('is_invoiced', $request->boolean('is_invoiced'));
+                $appliedFilters['Facturado'] = $request->boolean('is_invoiced') ? 'Si' : 'No';
+            }
+
+            $receipts = $query->orderBy('created_at', 'desc')->get();
+
+            $pdfService = new ReceiptPdfService();
+
+            return $pdfService->downloadReportPdf(
+                $receipts,
+                $request->date_from,
+                $request->date_to,
+                $appliedFilters
+            );
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to generate report',
                 'message' => $e->getMessage(),
             ], 500);
         }
