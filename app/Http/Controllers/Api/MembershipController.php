@@ -53,25 +53,10 @@ class MembershipController extends Controller
             'num_installments' => 'sometimes|integer|min:1|max:12',
             'initial_payment' => 'sometimes|numeric|min:0', // enganche
             'inscription_fee' => 'sometimes|numeric|min:0', // cuota 0 / inscripción
-            'document_base64' => 'nullable|string',
         ]);
 
         $client = Client::findOrFail($validated['client_id']);
         $plan = MembershipPlan::findOrFail($validated['plan_id']);
-
-        $documentUrl = null;
-        if ($request->filled('document_base64')) {
-            $base64 = $request->document_base64;
-            if (preg_match('/^data:(image\/\w+|application\/pdf);base64,/', $base64, $type)) {
-                $data = substr($base64, strpos($base64, ',') + 1);
-                $mime = strtolower($type[1]);
-                $extension = explode('/', $mime)[1];
-                $data = base64_decode($data);
-                $fileName = 'payments/docs/' . uniqid() . '.' . $extension;
-                \Illuminate\Support\Facades\Storage::disk('public')->put($fileName, $data);
-                $documentUrl = $fileName;
-            }
-        }
 
         $inscriptionFee = (float) ($validated['inscription_fee'] ?? 0);
         $paymentType = 'installments'; // Forzar a cuotas
@@ -108,7 +93,6 @@ class MembershipController extends Controller
                     'payment_method' => strtolower($validated['payment_method']),
                     'status' => 'completed',
                     'transaction_id' => $request->input('reference'),
-                    'document_url' => $documentUrl,
                     'paid_at' => now(),
                 ]);
 
@@ -152,7 +136,7 @@ class MembershipController extends Controller
                 try {
                     Receipt::createFromPaymentAuto($payment, 'subscription', $membership->id);
                 } catch (\Exception $e) {
-                    \Log::warning('Auto-receipt failed for membership payment #' . $payment->id . ': ' . $e->getMessage());
+                    //\Log::warning('Auto-receipt failed for membership payment #' . $payment->id . ': ' . $e->getMessage());
                 }
             } else {
                 // ── 2. Crear plan de pago estructurado (12 meses por defecto) ──
@@ -173,7 +157,6 @@ class MembershipController extends Controller
                         'payment_method' => strtolower($validated['payment_method']),
                         'status' => 'completed',
                         'transaction_id' => $request->input('reference'),
-                        'document_url' => $documentUrl,
                         'notes' => 'Enganche / Pago inicial / Inscripción',
                         'paid_at' => now(),
                     ]);
@@ -229,7 +212,7 @@ class MembershipController extends Controller
                     try {
                         Receipt::createFromPaymentAuto($firstPayment, 'subscription', $membership->id);
                     } catch (\Exception $e) {
-                        \Log::warning('Auto-receipt failed for installment payment #' . $firstPayment->id . ': ' . $e->getMessage());
+                        // \Log::warning('Auto-receipt failed for installment payment #' . $firstPayment->id . ': ' . $e->getMessage());
                     }
                 }
             }
