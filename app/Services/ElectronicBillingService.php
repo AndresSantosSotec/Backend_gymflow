@@ -85,7 +85,7 @@ class ElectronicBillingService
 
             // Empresa
             'company' => [
-                'name' => config('app.name', 'GymFlow'),
+                'name' => config('app.name', 'IronGym'),
                 'tax_id' => config('site.company_tax_id', ''),
                 'address' => config('site.company_address', ''),
                 'phone' => config('site.company_phone', ''),

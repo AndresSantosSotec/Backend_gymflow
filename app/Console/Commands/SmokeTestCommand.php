@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 
 /**
- * php artisan gymflow:smoke-test
+ * php artisan irongym:smoke-test
  *
  * Prueba todos los endpoints del sistema:
  *   1. Auth (login / user / logout)
@@ -18,11 +18,11 @@ use Illuminate\Support\Facades\Http;
  */
 class SmokeTestCommand extends Command
 {
-    protected $signature = 'gymflow:smoke-test
+    protected $signature = 'irongym:smoke-test
                             {--only= : Solo correr un grupo: auth|api|recurrente|webhooks|lifecycle}
                             {--base-url=http://127.0.0.1:8000 : URL base del servidor local}';
 
-    protected $description = 'Tests todos los endpoints de GymFlow y la conectividad con Recurrente';
+    protected $description = 'Tests todos los endpoints de IronGym y la conectividad con Recurrente';
 
     private string $baseUrl;
     private string $token  = '';
@@ -57,19 +57,19 @@ class SmokeTestCommand extends Command
         $this->sectionTitle('🔐 GRUPO 1: Autenticación');
 
         // 1.1 Login correcto
-        $res = $this->post('/api/login', ['email' => 'admin@gymflow.com', 'password' => 'admin123']);
+        $res = $this->post('/api/login', ['email' => 'admin@irongym.com', 'password' => 'admin123']);
         if ($this->check('LOGIN: Admin puede iniciar sesión', isset($res['token']))) {
             $this->token = $res['token'];
         }
 
         // 1.2 Login con credenciales incorrectas → 401
-        $res = $this->rawPost('/api/login', ['email' => 'admin@gymflow.com', 'password' => 'wrong']);
+        $res = $this->rawPost('/api/login', ['email' => 'admin@irongym.com', 'password' => 'wrong']);
         $this->check('LOGIN: Credenciales incorrectas retornan 401', $res->status() === 401);
 
         // 1.3 GET /api/user con token válido
         $res = $this->get('/api/user');
         $this->check('GET /api/user: Retorna datos del usuario autenticado', isset($res['email']));
-        $this->check('GET /api/user: Email correcto', ($res['email'] ?? '') === 'admin@gymflow.com');
+        $this->check('GET /api/user: Email correcto', ($res['email'] ?? '') === 'admin@irongym.com');
 
         // 1.4 GET /api/user sin token → 401
         $resRaw = Http::get("{$this->baseUrl}/api/user");
@@ -80,7 +80,7 @@ class SmokeTestCommand extends Command
         $this->check('POST /api/logout: Retorna 200', $logoutRes->status() === 200);
 
         // ─ Re-login para los demás grupos ─
-        $res2 = $this->post('/api/login', ['email' => 'admin@gymflow.com', 'password' => 'admin123']);
+        $res2 = $this->post('/api/login', ['email' => 'admin@irongym.com', 'password' => 'admin123']);
         $this->token = $res2['token'] ?? '';
     }
 
@@ -203,7 +203,7 @@ class SmokeTestCommand extends Command
         // 3.4 Crear usuario de prueba
         try {
             $user = $recurrente->createUser([
-                'email' => 'smoketest_' . time() . '@gymflow-test.com',
+                'email' => 'smoketest_' . time() . '@irongym-test.com',
                 'name'  => 'Smoke Test User',
             ]);
             $userId = $user['id'] ?? null;
@@ -406,7 +406,7 @@ class SmokeTestCommand extends Command
     {
         $this->newLine();
         $this->line('<fg=cyan;options=bold>╔════════════════════════════════════════════╗</>');
-        $this->line('<fg=cyan;options=bold>║   GYMFLOW — SMOKE TEST SUITE               ║</>');
+        $this->line('<fg=cyan;options=bold>║   IRONGYM — SMOKE TEST SUITE               ║</>');
         $this->line('<fg=cyan;options=bold>╚════════════════════════════════════════════╝</>');
         $this->line("<fg=gray>Base URL: {$this->baseUrl}</>");
         $this->line('<fg=gray>Env Recurrente: ' . config('services.recurrente.env') . '</>');

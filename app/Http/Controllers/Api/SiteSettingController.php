@@ -16,12 +16,12 @@ class SiteSettingController extends Controller
         if (!$settings) {
             // Retornar configuración por defecto
             return response()->json([
-                'gymName' => 'GymFlow',
+                'gymName' => 'IronGym',
                 'slogan' => 'Tu mejor versión te espera',
                 'aboutText' => 'Somos un gimnasio moderno y completo, dedicado a ayudarte a alcanzar tus metas de fitness.',
                 'phone' => '+502 1234-5678',
                 'whatsapp' => '+502 1234-5678',
-                'instagram' => '@gymflow',
+                'instagram' => '@irongym',
                 'primaryColor' => 'oklch(0.65 0.25 285)',
                 'heroImages' => [],
                 'themeColors' => null,

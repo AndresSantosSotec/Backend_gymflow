@@ -484,7 +484,7 @@ class PagoAdelantoService
                     $newUser   = $this->recurrente->createUser([
                         'first_name' => $nameParts[0],
                         'last_name'  => $nameParts[1] ?? '-',
-                        'email'      => $client->email ?? "client{$client->id}@gymflow.local",
+                        'email'      => $client->email ?? "client{$client->id}@irongym.local",
                     ]);
                     $client->update(['recurrente_user_id' => $newUser['id']]);
                     $recurrenteUserId = $newUser['id'];

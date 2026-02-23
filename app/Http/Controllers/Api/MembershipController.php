@@ -53,10 +53,25 @@ class MembershipController extends Controller
             'num_installments' => 'sometimes|integer|min:1|max:12',
             'initial_payment' => 'sometimes|numeric|min:0', // enganche
             'inscription_fee' => 'sometimes|numeric|min:0', // cuota 0 / inscripción
+            'document_base64' => 'nullable|string',
         ]);
 
         $client = Client::findOrFail($validated['client_id']);
         $plan = MembershipPlan::findOrFail($validated['plan_id']);
+
+        $documentUrl = null;
+        if ($request->filled('document_base64')) {
+            $base64 = $request->document_base64;
+            if (preg_match('/^data:(image\/\w+|application\/pdf);base64,/', $base64, $type)) {
+                $data = substr($base64, strpos($base64, ',') + 1);
+                $mime = strtolower($type[1]);
+                $extension = explode('/', $mime)[1];
+                $data = base64_decode($data);
+                $fileName = 'payments/docs/' . uniqid() . '.' . $extension;
+                \Illuminate\Support\Facades\Storage::disk('public')->put($fileName, $data);
+                $documentUrl = $fileName;
+            }
+        }
 
         $inscriptionFee = (float) ($validated['inscription_fee'] ?? 0);
         $paymentType = 'installments'; // Forzar a cuotas
@@ -68,7 +83,7 @@ class MembershipController extends Controller
         $endDate = $startDate->copy()->addDays($plan->duration_days);
 
         // Todo debe ejecutarse de forma atómica. Si algo falla (ej. base de datos), se deshace.
-        return DB::transaction(function () use ($validated, $client, $plan, $inscriptionFee, $paymentType, $numInstallments, $totalAmount, $startDate, $endDate, $request) {
+        return DB::transaction(function () use ($validated, $client, $plan, $inscriptionFee, $paymentType, $numInstallments, $totalAmount, $startDate, $endDate, $request, $documentUrl) {
             // 1. Asignar membresía al cliente (relación principal)
             $membership = Membership::create([
                 'client_id' => $client->id,
@@ -93,6 +108,7 @@ class MembershipController extends Controller
                     'payment_method' => strtolower($validated['payment_method']),
                     'status' => 'completed',
                     'transaction_id' => $request->input('reference'),
+                    'document_url' => $documentUrl,
                     'paid_at' => now(),
                 ]);
 
@@ -157,6 +173,7 @@ class MembershipController extends Controller
                         'payment_method' => strtolower($validated['payment_method']),
                         'status' => 'completed',
                         'transaction_id' => $request->input('reference'),
+                        'document_url' => $documentUrl,
                         'notes' => 'Enganche / Pago inicial / Inscripción',
                         'paid_at' => now(),
                     ]);

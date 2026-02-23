@@ -279,9 +279,9 @@ Ver recibos relacionados con pagos.
 ### Backend (.env)
 ```env
 BILLING_PROVIDER=local
-COMPANY_NAME=GymFlow
+COMPANY_NAME=IronGym
 COMPANY_TAX_ID=RFC12345678ABC
-COMPANY_EMAIL=info@gymflow.local
+COMPANY_EMAIL=info@irongym.local
 ```
 
 ### Frontend (ya configurado)
@@ -314,7 +314,7 @@ COMPANY_EMAIL=info@gymflow.local
 ### 1. Verificar que funcione todo
 ```bash
 # Terminal 1: Backend
-cd Backend-Gymflow
+cd Backend-IronGym
 php artisan serve
 
 # Terminal 2: Frontend
@@ -350,7 +350,7 @@ npm run dev
 - [INTEGRACION_FRONTEND_RECIBOS.md](./INTEGRACION_FRONTEND_RECIBOS.md) - Integración completa
 
 ### Código
-- Backend: `Backend-Gymflow/app/Http/Controllers/Api/ReceiptController.php`
+- Backend: `Backend-IronGym/app/Http/Controllers/Api/ReceiptController.php`
 - Frontend: `gym-access-qr-manage/src/components/receipts/`
 
 ---
@@ -404,4 +404,4 @@ Puedes empezar a usar inmediatamente desde `/admin/receipts`.
 **Versión:** 2.0.0  
 **Última actualización:** 15 de Febrero, 2026  
 **Creado por:** Copilot IA  
-**Para:** GymFlow
+**Para:** IronGym

@@ -249,7 +249,7 @@ $response.Content | ConvertFrom-Json | ConvertTo-Json -Depth 10
 ### Configuración Inicial
 
 1. Abrir Postman
-2. Crear nueva Collection: "GymFlow - PDFs y Facturas"
+2. Crear nueva Collection: "IronGym - PDFs y Facturas"
 3. Crear Environment variable: `token` con su JWT
 4. Crear variable: `base_url` = `http://localhost:8000`
 

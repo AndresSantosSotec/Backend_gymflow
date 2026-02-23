@@ -1,4 +1,4 @@
-# 📊 RESUMEN DE INTEGRACIÓN BACKEND-FRONTEND GYMFLOW
+# 📊 RESUMEN DE INTEGRACIÓN BACKEND-FRONTEND IRONGYM
 
 ## ✅ LO QUE YA ESTÁ CONFIGURADO
 
@@ -55,8 +55,8 @@
 
 #### 7. Datos de Prueba
 - ✅ 2 usuarios creados:
-  - admin@gymflow.com / password123
-  - test@gymflow.com / password123
+  - admin@irongym.com / password123
+  - test@irongym.com / password123
 
 ---
 
@@ -267,9 +267,9 @@ headers: {
 {
   "user": {
     "id": 1,
-    "name": "Admin Gymflow",
+    "name": "Admin IronGym",
     "username": "admin",
-    "email": "admin@gymflow.com"
+    "email": "admin@irongym.com"
   },
   "token": "1|wJ3fK9Hq2...",
   "token_type": "Bearer"
@@ -281,7 +281,7 @@ headers: {
 ## 🚀 INICIAR EL BACKEND
 
 ```bash
-cd d:\Gymflow\Backend-Gymflow
+cd d:\IronGym\Backend-IronGym
 php artisan serve
 ```
 
@@ -303,7 +303,7 @@ API base URL: **http://localhost:8000/api**
 ## ✅ PRÓXIMOS PASOS INMEDIATOS
 
 1. **Iniciar servidor backend**: `php artisan serve`
-2. **Probar endpoint login** con email: `admin@gymflow.com`, password: `password123`
+2. **Probar endpoint login** con email: `admin@irongym.com`, password: `password123`
 3. **Crear configuración API en frontend**
 4. **Actualizar auth.service.ts para usar API real**
 5. **Probar login desde la aplicación React**

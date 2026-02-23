@@ -1,4 +1,4 @@
-# 🧪 Colección de Pruebas API - Gymflow
+# 🧪 Colección de Pruebas API - IronGym
 
 ## Variables Globales
 ```
@@ -16,7 +16,7 @@ POST {{BASE_URL}}/login
 Content-Type: application/json
 
 {
-  "email": "admin@gymflow.com",
+  "email": "admin@irongym.com",
   "password": "password123"
 }
 ```
@@ -29,7 +29,7 @@ Content-Type: application/json
 {
   "name": "Nuevo Usuario",
   "username": "usuario123",
-  "email": "nuevo@gymflow.com",
+  "email": "nuevo@irongym.com",
   "password": "password123",
   "password_confirmation": "password123"
 }

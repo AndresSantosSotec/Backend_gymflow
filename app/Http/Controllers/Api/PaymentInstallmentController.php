@@ -73,9 +73,24 @@ class PaymentInstallmentController extends Controller
             'payment_method' => 'required|in:cash,card,transfer,stripe',
             'reference' => 'nullable|string',
             'notes' => 'nullable|string',
+            'document_base64' => 'nullable|string',
         ]);
 
         $remaining = (float) $installment->amount - (float) $installment->amount_paid;
+
+        $documentUrl = null;
+        if ($request->filled('document_base64')) {
+            $base64 = $request->document_base64;
+            if (preg_match('/^data:(image\/\w+|application\/pdf);base64,/', $base64, $type)) {
+                $data = substr($base64, strpos($base64, ',') + 1);
+                $mime = strtolower($type[1]);
+                $extension = explode('/', $mime)[1];
+                $data = base64_decode($data);
+                $fileName = 'payments/docs/' . uniqid() . '.' . $extension;
+                \Illuminate\Support\Facades\Storage::disk('public')->put($fileName, $data);
+                $documentUrl = $fileName;
+            }
+        }
 
         if ($validated['amount'] > $remaining + 0.01) {
             return response()->json([
@@ -93,6 +108,7 @@ class PaymentInstallmentController extends Controller
             'payment_method' => $validated['payment_method'],
             'status' => 'completed',
             'transaction_id' => $request->input('reference'),
+            'document_url' => $documentUrl,
             'notes' => ($request->input('notes') ?? '') . " [Cuota #{$installment->installment_number}]",
             'paid_at' => now(),
         ]);

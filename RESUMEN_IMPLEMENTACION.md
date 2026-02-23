@@ -1,6 +1,6 @@
 # RESUMEN DE IMPLEMENTACIÓN COMPLETADA
 
-**Proyecto:** GymFlow - Sistema de Gestión de Gimnasio  
+**Proyecto:** IronGym - Sistema de Gestión de Gimnasio  
 **Módulo:** Sistema de Recibos/Facturas e Integración de Huella Digital  
 **Fecha:** 15 de Febrero, 2026  
 **Estado:** ✅ COMPLETADO Y TESTEADO

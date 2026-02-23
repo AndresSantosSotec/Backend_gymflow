@@ -15,7 +15,7 @@ class UserController extends Controller
      */
     public function index()
     {
-        return response()->json(User::with(['role', 'photos', 'documents'])->get());
+        return response()->json(User::with(['role.permissions', 'photos', 'documents'])->get());
     }
 
     /**
@@ -90,7 +90,7 @@ class UserController extends Controller
             }
         }
 
-        return response()->json($user->load(['role', 'photos', 'documents']), 201);
+        return response()->json($user->load(['role.permissions', 'photos', 'documents']), 201);
     }
 
     /**
@@ -98,7 +98,7 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        return response()->json($user->load(['role', 'photos', 'documents']));
+        return response()->json($user->load(['role.permissions', 'photos', 'documents']));
     }
 
     /**
@@ -179,7 +179,7 @@ class UserController extends Controller
             }
         }
 
-        return response()->json($user->load(['role', 'photos', 'documents']));
+        return response()->json($user->load(['role.permissions', 'photos', 'documents']));
     }
 
     /**

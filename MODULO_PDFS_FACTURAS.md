@@ -286,11 +286,11 @@ BILLING_API_KEY=your_api_key
 BILLING_API_SECRET=your_api_secret
 
 # Datos de Empresa
-COMPANY_NAME=GymFlow
+COMPANY_NAME=IronGym
 COMPANY_TAX_ID=RFC12345678ABC
 COMPANY_ADDRESS=Calle Principal 123, Ciudad, País
 COMPANY_PHONE=+1 (555) 123-4567
-COMPANY_EMAIL=info@gymflow.local
+COMPANY_EMAIL=info@irongym.local
 
 # PDFs
 RECEIPT_PAPER_SIZE=a4
@@ -539,7 +539,7 @@ php artisan storage:link
 
 **Solución:**
 ```bash
-# Archivo ya existe en Backend-Gymflow/config/billing.php
+# Archivo ya existe en Backend-IronGym/config/billing.php
 # Verificar variables de entorno:
 echo $BILLING_PROVIDER
 ```

@@ -438,10 +438,10 @@ class ReceiptController extends Controller
         try {
             $receipt = Receipt::with(['client', 'payment', 'membership.plan', 'venta'])->findOrFail($id);
 
-            $companyName = config('app.name', 'GymFlow');
+            $companyName = config('app.name', 'IronGym');
             $companyAddress = config('site.company_address', 'Dirección no configurada');
             $companyPhone = config('site.company_phone', 'Teléfono no configurado');
-            $companyEmail = config('site.company_email', 'email@gymflow.local');
+            $companyEmail = config('site.company_email', 'email@irongym.local');
 
             return view('pdfs.receipt', [
                 'receipt' => $receipt,
@@ -473,10 +473,10 @@ class ReceiptController extends Controller
                 ], 422);
             }
 
-            $companyName = config('app.name', 'GymFlow');
+            $companyName = config('app.name', 'IronGym');
             $companyAddress = config('site.company_address', 'Dirección no configurada');
             $companyPhone = config('site.company_phone', 'Teléfono no configurado');
-            $companyEmail = config('site.company_email', 'email@gymflow.local');
+            $companyEmail = config('site.company_email', 'email@irongym.local');
             $companyTax = config('site.company_tax_id', 'RFC/TAX no configurado');
 
             return view('pdfs.invoice', [

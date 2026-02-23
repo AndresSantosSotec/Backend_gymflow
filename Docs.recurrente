@@ -1,454 +1,3 @@
-Recurrente: Documentación API
-La API de Recurrente te permite crear sesiones de compra, manejar tus productos, suscripciones, y clientes, hacer transferencias de dinero entre diferentes cuentas de Recurrente, y mucho más.
-
-Cómo empezar
-Crea una cuenta en Recurrente.
-
-La API responde en formato JSON. Cuando retorna un error, el error es enviado en un error key en JSON.
-
-Autenticación
-Para encontrar tus Llaves de API, dentro de tu cuenta de Recurrente, ve a:
-
-Configuración → Llaves API.
-
-Para autenticarte, debes enviar los siguientes headers en cada request:
-
-Header	Description
-X-PUBLIC-KEY	tu_llave_publica
-X-SECRET-KEY	tu_llave_privada
-Error en la autenticación
-Si tus llaves de API no se están enviando o son inválidas, recibirás un código de respuesta HTTP 401 Unauthorized.
-
-Sandbox y pagos de prueba
-Existen dos formas de realizar pruebas: usando el ambiente Sandbox o haciendo pruebas directamente en producción, dependiendo del tipo de validación que necesites.
-
-✅ Ambiente Sandbox
-El ambiente Sandbox permite hacer pagos de prueba sin generar actividad real. Para utilizarlo:
-
-Usa tus llaves de ambiente TEST.
-
-Simula un pago exitoso con la tarjeta 4242 4242 4242 4242.
-
-Los checkouts creados con llaves TEST:
-
-Muestran un aviso que dice "PRUEBA" en el link de pago.
-
-Tienen el atributo live_mode = false.
-
-No crean actividad en la cuenta ni afectan el balance.
-
-No disparan webhooks.
-
-Este ambiente es ideal para pruebas durante la integración inicial o desarrollo. 
-
-⚠️ Pruebas en producción
-También es posible realizar pruebas en ambiente LIVE con tus llaves de producción. En estos casos:
-
-Se recomienda reembolsar los pagos de prueba el mismo día, ya sea desde el panel de Recurrente o mediante la API en /api/refunds.
-
-Los pagos reembolsados el mismo día son reembolsados al 100% del monto.
-
-Esta opción permite validar el flujo completo, incluyendo actividad en cuenta, webhooks y conciliación. 
-
-¿Necesitas ayuda?
-Si estás usando Wordpress, te recomendamos que utilices nuestro plugin.
-
-Únete y pregunta en nuestro Discord.
-
-O envíanos un correo a soporte@recurrente.com
-
-Tokenized Payments
-Si quieres hacer un cobro a un cliente existente, usa tokenized payments.
-
-POST
-Create a one time payment (amount and currency)
-https://app.recurrente.com/api/one_time_payments/
-HEADERS
-X-PUBLIC-KEY
-{{recurrente_public_key}}
-
-X-SECRET-KEY
-{{recurrente_private_key}}
-
-Body
-formdata
-payment_method_id
-pay_m_l1aqgfoq
-
-Encuentra este valor en el payload de un webhook exitoso, o al hacer GET /checkout en un checkout exitoso
-
-items[][currency]
-GTQ
-
-La moneda a cobrar.
-
-Posibles valores son:
-
-GTQ
-USD
-items[][amount_in_cents]
-3000
-
-Monto a cobrar en centavos.
-
-items[][name]
-One Ripe Banana
-
-(Opcional) El nombre del producto.
-
-items[][image_url]
-https://source.unsplash.com/400x400/?banana
-
-(Opcional) URL de la imagen del producto.
-
-items[][quantity]
-1
-
-(Opcional) Cantidad.
-
-Si no incluyes una, el default es 1.
-
-El valor mínimo es 1 y el valor máximo es 9.
-
-Example Request
-Respuesta exitosa
-View More
-curl
-curl --location 'https://app.recurrente.com/api/one_time_payments' \
---header 'X-PUBLIC-KEY: {{recurrente_public_key}}' \
---header 'X-SECRET-KEY: {{recurrente_private_key}}' \
---header 'Content-Type: application/json' \
---data '{
-  "items": [
-    {
-      "name": "One Ripe Banana",
-      "currency": "GTQ",
-      "amount_in_cents": 3000,
-      "image_url": "https://source.unsplash.com/400x400/?banana",
-      "quantity": 1
-    }
-  ],
-  "success_url": "https://www.google.com",
-  "cancel_url": "https://www.amazon.com",
-  "user_id": "us_123456",
-  "metadata": {}
-}'
-201 Created
-Example Response
-Body
-Headers (0)
-json
-{
-  "id": "on_123456789",
-  "status": "paid"
-}
-POST
-Create a one time payment (Product ID)
-https://app.recurrente.com/api/checkouts/
-HEADERS
-X-PUBLIC-KEY
-{{recurrente_public_key}}
-
-X-SECRET-KEY
-{{recurrente_private_key}}
-
-Body
-formdata
-payment_method_id
-pay_m_l1aqgfoq
-
-Encuentra este valor en el payload de un webhook exitoso, o al hacer GET /checkout en un checkout exitoso
-
-items[][product_id]
-prod_1234567
-
-Crea un producto primero, y luego utiliza el ID del producto.
-
-items[][quantity]
-1
-
-(Opcional) Cantidad. Si no incluyes una, el default es 1. El valor mínimo es 1
-
-Example Request
-Respuesta exitosa
-View More
-curl
-curl --location 'https://app.recurrente.com/api/one_time_payments' \
---header 'X-PUBLIC-KEY: {{recurrente_public_key}}' \
---header 'X-SECRET-KEY: {{recurrente_private_key}}' \
---header 'Content-Type: application/json' \
---data '{
-  "items": [
-    {
-       "product_id": "prod_123456"
-    }
-  ],
-  "metadata": {}
-}'
-201 Created
-Example Response
-Body
-Headers (0)
-json
-{
-  "id": "on_123456789",
-  "status": "paid"
-}
-
-
-POST
-Create a one time payment (Product ID)
-https://app.recurrente.com/api/checkouts/
-HEADERS
-X-PUBLIC-KEY
-{{recurrente_public_key}}
-
-X-SECRET-KEY
-{{recurrente_private_key}}
-
-Body
-formdata
-payment_method_id
-pay_m_l1aqgfoq
-
-Encuentra este valor en el payload de un webhook exitoso, o al hacer GET /checkout en un checkout exitoso
-
-items[][product_id]
-prod_1234567
-
-Crea un producto primero, y luego utiliza el ID del producto.
-
-items[][quantity]
-1
-
-(Opcional) Cantidad. Si no incluyes una, el default es 1. El valor mínimo es 1
-
-
-
-Public
-ENVIRONMENT
-No Environment
-LAYOUT
-Double Column
-LANGUAGE
-cURL - cURL
-Recurrente: Documentación API
-Introduction
-Prueba tu autenticación
-Checkouts
-Customers
-Payment Intents
-Products
-Coupons
-Subscriptions
-Users
-Transfers
-Refunds
-Webhooks
-Cuentas Conectadas
-Embedded Checkouts
-Tokenized Payments
-Recurrente: Documentación API
-La API de Recurrente te permite crear sesiones de compra, manejar tus productos, suscripciones, y clientes, hacer transferencias de dinero entre diferentes cuentas de Recurrente, y mucho más.
-
-Cómo empezar
-Crea una cuenta en Recurrente.
-
-La API responde en formato JSON. Cuando retorna un error, el error es enviado en un error key en JSON.
-
-Autenticación
-Para encontrar tus Llaves de API, dentro de tu cuenta de Recurrente, ve a:
-
-Configuración → Llaves API.
-
-Para autenticarte, debes enviar los siguientes headers en cada request:
-
-Header	Description
-X-PUBLIC-KEY	tu_llave_publica
-X-SECRET-KEY	tu_llave_privada
-Error en la autenticación
-Si tus llaves de API no se están enviando o son inválidas, recibirás un código de respuesta HTTP 401 Unauthorized.
-
-Sandbox y pagos de prueba
-Existen dos formas de realizar pruebas: usando el ambiente Sandbox o haciendo pruebas directamente en producción, dependiendo del tipo de validación que necesites.
-
-✅ Ambiente Sandbox
-El ambiente Sandbox permite hacer pagos de prueba sin generar actividad real. Para utilizarlo:
-
-Usa tus llaves de ambiente TEST.
-
-Simula un pago exitoso con la tarjeta 4242 4242 4242 4242.
-
-Los checkouts creados con llaves TEST:
-
-Muestran un aviso que dice "PRUEBA" en el link de pago.
-
-Tienen el atributo live_mode = false.
-
-No crean actividad en la cuenta ni afectan el balance.
-
-No disparan webhooks.
-
-Este ambiente es ideal para pruebas durante la integración inicial o desarrollo. 
-
-⚠️ Pruebas en producción
-También es posible realizar pruebas en ambiente LIVE con tus llaves de producción. En estos casos:
-
-Se recomienda reembolsar los pagos de prueba el mismo día, ya sea desde el panel de Recurrente o mediante la API en /api/refunds.
-
-Los pagos reembolsados el mismo día son reembolsados al 100% del monto.
-
-Esta opción permite validar el flujo completo, incluyendo actividad en cuenta, webhooks y conciliación. 
-
-¿Necesitas ayuda?
-Si estás usando Wordpress, te recomendamos que utilices nuestro plugin.
-
-Únete y pregunta en nuestro Discord.
-
-O envíanos un correo a soporte@recurrente.com
-
-Tokenized Payments
-Si quieres hacer un cobro a un cliente existente, usa tokenized payments.
-
-POST
-Create a one time payment (amount and currency)
-https://app.recurrente.com/api/one_time_payments/
-HEADERS
-X-PUBLIC-KEY
-{{recurrente_public_key}}
-
-X-SECRET-KEY
-{{recurrente_private_key}}
-
-Body
-formdata
-payment_method_id
-pay_m_l1aqgfoq
-
-Encuentra este valor en el payload de un webhook exitoso, o al hacer GET /checkout en un checkout exitoso
-
-items[][currency]
-GTQ
-
-La moneda a cobrar.
-
-Posibles valores son:
-
-GTQ
-USD
-items[][amount_in_cents]
-3000
-
-Monto a cobrar en centavos.
-
-items[][name]
-One Ripe Banana
-
-(Opcional) El nombre del producto.
-
-items[][image_url]
-https://source.unsplash.com/400x400/?banana
-
-(Opcional) URL de la imagen del producto.
-
-items[][quantity]
-1
-
-(Opcional) Cantidad.
-
-Si no incluyes una, el default es 1.
-
-El valor mínimo es 1 y el valor máximo es 9.
-
-Example Request
-Respuesta exitosa
-View More
-curl
-curl --location 'https://app.recurrente.com/api/one_time_payments' \
---header 'X-PUBLIC-KEY: {{recurrente_public_key}}' \
---header 'X-SECRET-KEY: {{recurrente_private_key}}' \
---header 'Content-Type: application/json' \
---data '{
-  "items": [
-    {
-      "name": "One Ripe Banana",
-      "currency": "GTQ",
-      "amount_in_cents": 3000,
-      "image_url": "https://source.unsplash.com/400x400/?banana",
-      "quantity": 1
-    }
-  ],
-  "success_url": "https://www.google.com",
-  "cancel_url": "https://www.amazon.com",
-  "user_id": "us_123456",
-  "metadata": {}
-}'
-201 Created
-Example Response
-Body
-Headers (0)
-json
-{
-  "id": "on_123456789",
-  "status": "paid"
-}
-POST
-Create a one time payment (Product ID)
-https://app.recurrente.com/api/checkouts/
-HEADERS
-X-PUBLIC-KEY
-{{recurrente_public_key}}
-
-X-SECRET-KEY
-{{recurrente_private_key}}
-
-Body
-formdata
-payment_method_id
-pay_m_l1aqgfoq
-
-Encuentra este valor en el payload de un webhook exitoso, o al hacer GET /checkout en un checkout exitoso
-
-items[][product_id]
-prod_1234567
-
-Crea un producto primero, y luego utiliza el ID del producto.
-
-items[][quantity]
-1
-
-(Opcional) Cantidad. Si no incluyes una, el default es 1. El valor mínimo es 1
-
-Example Request
-Respuesta exitosa
-View More
-curl
-curl --location 'https://app.recurrente.com/api/one_time_payments' \
---header 'X-PUBLIC-KEY: {{recurrente_public_key}}' \
---header 'X-SECRET-KEY: {{recurrente_private_key}}' \
---header 'Content-Type: application/json' \
---data '{
-  "items": [
-    {
-       "product_id": "prod_123456"
-    }
-  ],
-  "metadata": {}
-}'
-201 Created
-Example Response
-Body
-Headers (0)
-json
-{
-  "id": "on_123456789",
-  "status": "paid"
-}
-
-aqui esta toda nla dcoemyetaciond er receurreta aydua a inetarr esto para lso aprgo contarjkeda de fornmet y backeden de la aplciacion pedue 
-
-cheo
-
 
 Public
 ENVIRONMENT
@@ -635,175 +184,6 @@ json
   "user_id": "usr_xyz789",
   "email": "cliente@ejemplo.com",
   "name": "María García"
-}
-POST
-Create a product (one time payment)
-https://app.recurrente.com/api/products/
-HEADERS
-X-PUBLIC-KEY
-{{recurrente_public_key}}
-
-X-SECRET-KEY
-{{recurrente_private_key}}
-
-Content-Type
-application/json
-
-Body
-formdata
-product[name]
-El nombre de tu producto
-
-El nombre del producto.
-
-product[description]
-La descripción es opcional
-
-(Opcional)
-
-product[image_url]
-https://source.unsplash.com/400x400/?banana
-
-(Opcional) URL de la imagen del producto.
-
-product[prices_attributes[][currency]]
-GTQ
-
-Posibles valores son:
-
-GTQ
-USD
-product[prices_attributes[][charge_type]]
-one_time
-
-product[prices_attributes[][amount_in_cents]]
-1000
-
-(Opcional) Cantidad.
-
-product[cancel_url]
-https://www.amazon.com/
-
-(Opcional) URL a dónde dirigir al comprador después de un pago exitoso.
-
-product[success_url]
-https://www.google.com/
-
-(Opcional) URL a dónde dirigir al comprador cuando abandona el checkout.
-
-product[custom_terms_and_conditions]
-El texto que tú quieras añadir.
-
-(Opcional)
-
-product[phone_requirement]
-none
-
-Los valores posibles son:
-
-required
-optional
-none
-product[address_requirement]
-none
-
-(Opcional) Si deseas capturar dirección de entrega en el checkout. Los valores posibles son:
-
-required
-optional
-none
-product[billing_info_requirement]
-none
-
-(Opcional) Si deseas capturar NIT/Pasaporte en el checkout. Los valores posibles son:
-
-required
-optional
-none
-product[adjustable_quantity]
-true
-
-(Opcional) Esto determina si el comprador puede ajustar la cantidad de unidades a comprar de este producto.
-
-Si lo dejas en blanco, el valor es "true". Puedes cambiarlo a "false".
-
-product[metadata]
-{}
-
-(Opcional) Puedes utilizar metadata para almacenar información estructurada adicional sobre un producto.
-
-Puedes especificar hasta 50 keys, con nombres de hasta 40 caracteres y valores de hasta 500 caracteres.
-
-product[inventory_quantity]
-(Opcional) Puedes dejarlo vacío si no quieres llevar una cantidad de inventario. Cada compra va reduciendo el inventario disponible, hasta que el producto llega a 0 disponible y se deshabilita.
-
-product[has_dynamic_pricing]
-(Opcional) Añade precio dinámico. El precio se convierte en el "monto a recibir" neto por el comercio. Disponible solo para pagos únicos.
-
-Example Request
-Ejemplo
-View More
-curl
-curl --location 'https://app.recurrente.com/api/products/' \
---header 'X-PUBLIC-KEY: {{recurrente_public_key}}' \
---header 'X-SECRET-KEY: {{recurrente_private_key}}' \
---header 'Content-Type: application/json' \
---data '{
-  "product": {
-    "name": "El nombre de tu producto",
-    "description": "La descripción es opcional",
-    "image_url": "https://source.unsplash.com/400x400/?banana",
-    "prices_attributes": [
-      {
-        "currency": "GTQ",
-        "charge_type": "one_time",
-        "amount_in_cents": 500
-      }
-    ],
-    "cancel_url": "https://www.amazon.com/",
-    "success_url": "https://www.google.com/",
-    "custom_terms_and_conditions": "El texto que tú quieras añadir.",
-    "phone_requirement": "none",
-    "address_requirement": "none",
-    "billing_info_requirement": "none"
-  },
-  "adjustable_quantity": true,
-  "inventory_quantity": null,
-  "metadata": {}
-}
-'
-201 Created
-Example Response
-Body
-Headers (0)
-View More
-json
-{
-  "id": "prod_9lstwgbr",
-  "status": "active",
-  "name": "El nombre de tu producto",
-  "description": "Descripción del producto",
-  "success_url": "https://www.google.com/",
-  "cancel_url": "https://www.amazon.com/",
-  "custom_terms_and_conditions": "Términos y condiciones",
-  "phone_requirement": "none",
-  "address_requirement": "none",
-  "billing_info_requirement": "none",
-  "prices": [
-    {
-      "id": "price_rky4dog7",
-      "amount_in_cents": 500,
-      "currency": "GTQ",
-      "billing_interval_count": 0,
-      "billing_interval": "",
-      "charge_type": "one_time",
-      "periods_before_automatic_cancellation": null,
-      "free_trial_interval_count": 0,
-      "free_trial_interval": ""
-    }
-  ],
-  "storefront_link": "https://app.recurrente.com/s/surf-office/el-nombre-de-tu-producto",
-  "metadata": {}
 }
 POST
 Create a product (subscription)
@@ -1248,6 +628,78 @@ json
   "id": "prod_m7vzucwi",
   "status": "deleted"
 }
+Coupons
+La API de Cupones permite a los comercios crear, consultar, actualizar y eliminar cupones de descuento.
+
+Un cupón define una promoción que puede ser aplicada a un pago, por ejemplo un monto fijo de descuento o un porcentaje.
+
+POST
+Create a coupon
+https://app.recurrente.com/api/coupons
+HEADERS
+X-PUBLIC-KEY
+{{recurrente_public_key}}
+
+X-SECRET-KEY
+{{recurrente_private_key}}
+
+Body
+formdata
+coupon[name]
+VERANO25
+
+El nombre de tu cupón
+
+coupon[amount_off_in_cents]
+1500
+
+(Opcional) Monto de descuento en centavos (ej. 1500 = Q15.00)
+
+coupon[percent_off]
+10
+
+(Opcional) Porcentaje de descuento (ej. 10 = 10%)
+
+coupon[currency]
+GTQ
+
+Moneda ISO (ej. GTQ) – requerido si usas amount_off_in_cents
+
+coupon[duration]
+once | forever
+
+En caso de una suscripción, si el cupón aplica solo al primer pago ("once") o a todos los pagos futuros ("forever").
+
+Example Request
+Respuesta exitosa
+curl
+curl --location 'https://app.recurrente.com/api/coupons/' \
+--header 'X-PUBLIC-KEY: {{recurrente_public_key}}' \
+--header 'X-SECRET-KEY: {{recurrente_private_key}}' \
+--header 'Content-Type: application/json' \
+--data '{
+    "coupon": {
+        "name": "NEWCOUPON",
+        "amount_off_in_cents": 1500,
+        "currency": "GTQ"
+    }
+}'
+201 Created
+Example Response
+Body
+Headers (0)
+json
+{
+  "id": "coup_ugwoxcp4",
+  "name": "NEWCOUPON",
+  "amount_off_in_cents": 1500,
+  "percent_off": null,
+  "max_redemptions": null,
+  "currency": "GTQ",
+  "duration": "once",
+  "expires_at": null,
+  "status": "active"
+}
 GET
 Get a coupon
 https://app.recurrente.com/api/coupons/{{couponId}}
@@ -1319,3 +771,241 @@ json
     "status": "active"
   }
 ]
+
+
+Docs recuerrenete cejuot
+Checkout Recurrente - Guía de Integración
+npm version
+
+Recurrente Checkout es una librería JavaScript que te permite insertar un checkout responsivo y seguro en tu propia página web. Funciona mostrando un iframe con tu sesión de pago y maneja callbacks para eventos clave como éxito, fallo o pagos en proceso.
+
+Instalación
+NPM (Recomendado)
+npm install recurrente-checkout
+CDN
+⚠️ En producción, recomendamos usar una versión específica (por ejemplo, @0.0.4) en lugar de @latest, para evitar romper integraciones al actualizar automáticamente.
+
+Unpkg
+<script src="https://unpkg.com/recurrente-checkout@latest/recurrente-checkout.js"></script>
+jsDelivr
+<script src="https://cdn.jsdelivr.net/npm/recurrente-checkout@latest/recurrente-checkout.js"></script>
+Demo
+🎥 Mira la librería en acción:
+
+Demo
+
+Uso
+Antes de comenzar: Para usar esta biblioteca, necesitas crear un checkout en Recurrente. Consulta la documentación de creación de checkouts para obtener tu URL de checkout.
+
+¿Dónde aparece el checkout?
+El checkout de Recurrente se renderiza como un iframe que se inserta automáticamente en el elemento HTML con el ID recurrente-checkout-container. Asegúrate de tener este elemento en tu página:
+
+<div id="recurrente-checkout-container"></div>
+El iframe se ajustará automáticamente al tamaño del contenedor y será responsive. Puedes personalizar la apariencia aplicando estilos CSS al contenedor.
+
+ES6 Modules (Recomendado)
+import RecurrenteCheckout from 'recurrente-checkout';
+
+RecurrenteCheckout.load({
+  url: "https://app.recurrente.com/checkout-session/ch_1234",
+  onSuccess: function(paymentData) {
+    console.log('Pago exitoso:', paymentData);
+    // Manejar pago exitoso
+    // ej., redirigir a página de éxito, actualizar UI, etc.
+  },
+  onFailure: function(error) {
+    console.log('Pago fallido:', error);
+    // Manejar pago fallido
+    // ej., mostrar mensaje de error, opción de reintentar, etc.
+  },
+  onPaymentInProgress: function() {
+    console.log('Pago con transferencia bancaria en proceso');
+    // Este callback se ejecuta solo para transferencias bancarias
+    // El pago puede tomar hasta 24 horas en procesarse
+    // ej., mostrar mensaje informativo, enviar email de confirmación, etc.
+  }
+});
+Importación Nominal
+import { loadRecurrenteCheckout } from 'recurrente-checkout';
+
+loadRecurrenteCheckout({
+  url: "https://app.recurrente.com/checkout-session/ch_1234",
+  onSuccess: function(paymentData) {
+    console.log('Pago exitoso:', paymentData);
+  },
+  onFailure: function(error) {
+    console.log('Pago fallido:', error);
+  },
+  onPaymentInProgress: function() {
+    console.log('Pago con transferencia bancaria en proceso');
+    // Solo para transferencias bancarias (puede tomar hasta 24h)
+  }
+});
+CommonJS
+const RecurrenteCheckout = require('recurrente-checkout');
+
+RecurrenteCheckout.load({
+  url: "https://app.recurrente.com/checkout-session/ch_1234",
+  onSuccess: function(paymentData) {
+    console.log('Pago exitoso:', paymentData);
+  },
+  onFailure: function(error) {
+    console.log('Pago fallido:', error);
+  },
+  onPaymentInProgress: function() {
+    console.log('Pago con transferencia bancaria en proceso');
+    // Solo para transferencias bancarias (puede tomar hasta 24h)
+  }
+});
+Navegador (Global)
+<script src="https://unpkg.com/recurrente-checkout@latest/recurrente-checkout.js"></script>
+<script>
+  RecurrenteCheckout.load({
+    url: "https://app.recurrente.com/s/your-checkout-url",
+    onSuccess: function(paymentData) {
+      console.log('Pago exitoso:', paymentData);
+    },
+    onFailure: function(error) {
+      console.log('Pago fallido:', error);
+    },
+    onPaymentInProgress: function() {
+      console.log('Pago con transferencia bancaria en proceso');
+      // Solo para transferencias bancarias (puede tomar hasta 24h)
+    }
+  });
+</script>
+Integración Rápida
+1. Incluir la Biblioteca JavaScript
+Elige uno de los métodos de instalación anteriores.
+
+2. Inicializar el Checkout
+Elige uno de los dos métodos de integración:
+
+Método A: URL de Checkout Directa
+RecurrenteCheckout.load({
+  url: "https://app.recurrente.com/checkout-session/ch_1234",
+  onSuccess: function(paymentData) {
+    console.log('Pago exitoso:', paymentData.checkoutId);
+    // Manejar pago exitoso
+    // ej., redirigir a página de éxito, actualizar UI, etc.
+  },
+  onFailure: function(data) {
+    console.log('Pago fallido:', data.error);
+    // Manejar pago fallido
+    // ej., mostrar mensaje de error, opción de reintentar, etc.
+  },
+  onPaymentInProgress: function() {
+    console.log('Pago con transferencia bancaria en proceso');
+    // Este callback se ejecuta solo para transferencias bancarias
+    // El pago puede tomar hasta 24 horas en procesarse
+    // ej., mostrar mensaje informativo, enviar email de confirmación, etc.
+  }
+});
+Método B: URL de Producto
+También puedes usar una URL de producto con el formato https://app.recurrente.com/s/{organization}/{product-slug}:
+
+RecurrenteCheckout.load({
+  url: "https://app.recurrente.com/s/mi-cuenta/mi-producto",
+  onSuccess: function(paymentData) {
+    console.log('Pago exitoso:', paymentData);
+    // Manejar pago exitoso
+    // ej., redirigir a página de éxito, actualizar UI, etc.
+  },
+  onFailure: function(error) {
+    console.log('Pago fallido:', error);
+    // Manejar pago fallido
+    // ej., mostrar mensaje de error, opción de reintentar, etc.
+  },
+  onPaymentInProgress: function() {
+    console.log('Pago con transferencia bancaria en proceso');
+    // Este callback se ejecuta solo para transferencias bancarias
+    // El pago puede tomar hasta 24 horas en procesarse
+    // ej., mostrar mensaje informativo, enviar email de confirmación, etc.
+  }
+});
+Nota: Reemplaza mi-cuenta con tu slug de organización y mi-producto con tu slug de producto.
+
+Callbacks y Manejo de Respuestas
+Callback onSuccess
+El callback onSuccess se ejecuta cuando el pago se completa exitosamente:
+
+onSuccess: function(paymentData) {
+  console.log('Pago exitoso:', paymentData);
+
+  // Manejar pago exitoso
+  // ej., redirigir a página de éxito, actualizar UI, etc.
+}
+Callback onFailure
+El callback onFailure se ejecuta cuando el pago falla:
+
+onFailure: function(message) {
+  console.log('Pago fallido:', message);
+
+  // Opcional: Manejar mensajes de notificación específicos
+  if (message.notice) {
+    console.log('Mensaje de notificación:', message.notice);
+    // Mostrar mensaje personalizado al usuario
+    // Por ejemplo: "Tarjeta rechazada", "Fondos insuficientes", etc.
+  }
+
+  // Manejar pago fallido
+  // if (message.error) {
+    // ej., mostrar mensaje de error, redireccionar a pagina de error, etc.
+  }
+}
+Callback onPaymentInProgress
+El callback onPaymentInProgress se ejecuta solo para transferencias bancarias en proceso:
+
+onPaymentInProgress: function(paymentData) {
+  console.log('Pago con transferencia bancaria en proceso:', paymentData);
+  // ej., mostrar mensaje informativo, enviar email de confirmación, etc.
+}
+Solución de Problemas
+Problemas Comunes
+Iframe no carga: Verifica que la URL de checkout sea accesible
+Errores CORS: Asegúrate de que tu backend permita solicitudes desde tu dominio frontend
+Errores de API: Verifica tus claves de API de Recurrente y permisos
+Contenido mixto: Usa HTTPS tanto para frontend como backend en producción
+Modo Debug
+La biblioteca incluye logging en consola. Revisa la consola del navegador para información detallada sobre el proceso de checkout.
+
+Ejemplo Completo
+Consulta el directorio examples/ para ejemplos de implementaciones completas.
+
+Ejemplos Disponibles
+🌐 PHP (examples/php/)
+Framework: PHP vanilla con servidor integrado
+Puerto: 8000
+Ejecutar: php -S localhost:8000
+Estructura: Servidor web simple con soporte CORS, páginas de éxito/fallo
+⚛️ React (examples/react/)
+Framework: React 18 con React Router
+Puerto: 3000
+Ejecutar: npm install && npm start
+Estructura: Arquitectura basada en componentes, enrutamiento del lado del cliente
+🔷 C# (examples/csharp/)
+Framework: ASP.NET Core 7.0 MVC
+Puerto: 7001 (HTTPS) / 5001 (HTTP)
+Ejecutar: dotnet run
+Estructura: Patrón MVC, vistas Razor, servicio de archivos estáticos
+☕ Java (examples/java/)
+Framework: Spring Boot 3.1 con Thymeleaf
+Puerto: 8080
+Ejecutar: mvn spring-boot:run
+Estructura: Spring MVC, motor de plantillas Thymeleaf, auto-configuración
+🏛️ ASP Classic (examples/asp/)
+Framework: ASP Classic (VBScript) con IIS
+Puerto: 80 (IIS por defecto)
+Ejecutar: Configurar directorio virtual de IIS
+Estructura: Procesamiento del lado del servidor, manejo de parámetros de consulta
+Inicio Rápido con Ejemplos
+Navega al directorio de tu tecnología preferida: cd examples/[tecnología]
+Sigue las instrucciones específicas del README de cada ejemplo
+Accede a la aplicación en el puerto correspondiente
+Consideraciones para Producción
+Usa HTTPS en producción
+Configura webhooks para transferencias bancarias
+Soporte
+Para crear checkouts: Consulta la documentación de creación de checkouts
+Para preguntas de integración: Revisa esta guía y las implementaciones de ejemplo
+Si te quedan más dudas o tienes problemas, únete a nuestro Discord

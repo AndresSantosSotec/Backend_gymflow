@@ -1,4 +1,4 @@
-# 📚 Guía Completa de la API - Gymflow Backend
+# 📚 Guía Completa de la API - IronGym Backend
 
 ## 🚀 Estado del Backend
 
@@ -81,7 +81,7 @@
 ### 1. Iniciar el Servidor
 
 ```bash
-cd Backend-Gymflow
+cd Backend-IronGym
 php artisan serve
 ```
 
@@ -95,7 +95,7 @@ POST http://127.0.0.1:8000/api/login
 Content-Type: application/json
 
 {
-  "email": "admin@gymflow.com",
+  "email": "admin@irongym.com",
   "password": "password123"
 }
 ```
@@ -223,8 +223,8 @@ Authorization: Bearer {token}
 ## 📦 Datos de Prueba
 
 ### Usuarios
-- **Admin:** admin@gymflow.com / password123
-- **Test:** test@gymflow.com / password123
+- **Admin:** admin@irongym.com / password123
+- **Test:** test@irongym.com / password123
 
 ### Planes de Membresía
 1. Básico Mensual - $299 (30 días)

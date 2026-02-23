@@ -24,7 +24,7 @@ El servidor:
 ```
 ┌─────────────────────────────┐
 │   Laravel Backend           │
-│   (GymFlow API)             │
+│   (IronGym API)             │
 │   Port: 3000                │
 └────────────┬────────────────┘
              │ HTTP REST
@@ -363,7 +363,7 @@ El servidor Java DEBE validar los siguientes headers en TODAS las solicitudes:
 ```
 Authorization: Bearer {JWT_TOKEN}
 Content-Type: application/json
-User-Agent: GymflowLaravelAPI/1.0
+User-Agent: IronGymLaravelAPI/1.0
 X-Request-ID: {UUID}
 ```
 
@@ -379,10 +379,10 @@ Header: {
 }
 
 Payload: {
-  "client_id": "gymflow-backend",
+  "client_id": "irongym-backend",
   "iat": 1708090800,
   "exp": 1708177200,
-  "iss": "gymflow"
+  "iss": "irongym"
 }
 ```
 
@@ -539,7 +539,7 @@ Ejemplo:
 
 ```bash
 # 1. Descargar JAR
-wget https://github.com/gymflow/fingerprint-server/releases/download/v1.0.0/fingerprint-server.jar
+wget https://github.com/irongym/fingerprint-server/releases/download/v1.0.0/fingerprint-server.jar
 
 # 2. Configurar (config.properties)
 FINGERPRINT_SERVER_PORT=8089

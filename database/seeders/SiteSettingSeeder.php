@@ -16,12 +16,12 @@ class SiteSettingSeeder extends Seeder
         SiteSetting::truncate();
 
         SiteSetting::create([
-            'gym_name' => 'GymFlow Fitness',
+            'gym_name' => 'IronGym Fitness',
             'slogan' => 'Transforma tu cuerpo, transforma tu vida',
-            'about_text' => 'En GymFlow ofrecemos equipos de última generación, entrenadores certificados y un ambiente motivador para ayudarte a alcanzar tus metas de fitness.',
+            'about_text' => 'En IronGym ofrecemos equipos de última generación, entrenadores certificados y un ambiente motivador para ayudarte a alcanzar tus metas de fitness.',
             'phone' => '+502 5555-5555',
             'whatsapp' => '+502 4444-4444',
-            'instagram' => '@gymflow_gt',
+            'instagram' => '@irongym_gt',
             'primary_color' => 'oklch(0.65 0.25 285)', // Legacy support
             'hero_images' => [
                 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop',

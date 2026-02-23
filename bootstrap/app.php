@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
 
+        // Alias para middleware de permisos
+        $middleware->alias([
+            'permission' => \App\Http\Middleware\CheckPermission::class,
+        ]);
+
         // Excluir el endpoint de webhooks de Recurrente del CSRF
         // (Recurrente hace POST sin token de sesión)
         $middleware->validateCsrfTokens(except: [

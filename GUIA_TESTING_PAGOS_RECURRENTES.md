@@ -124,7 +124,7 @@ RECURRENTE_SECRET_KEY=sk_test_xxxxx
 
 ```json
 {
-  "email": "cliente@gymflow.com",
+  "email": "cliente@irongym.com",
   "name": "Juan Pérez"
 }
 ```
@@ -133,7 +133,7 @@ RECURRENTE_SECRET_KEY=sk_test_xxxxx
 ```json
 {
   "id": "us_abc123def456",
-  "email": "cliente@gymflow.com",
+  "email": "cliente@irongym.com",
   "name": "Juan Pérez"
 }
 ```
@@ -182,8 +182,8 @@ RECURRENTE_SECRET_KEY=sk_test_xxxxx
       "quantity": 1
     }
   ],
-  "success_url": "https://app.gymflow.com/memberships/success",
-  "cancel_url": "https://app.gymflow.com/memberships/cancelled",
+  "success_url": "https://app.irongym.com/memberships/success",
+  "cancel_url": "https://app.irongym.com/memberships/cancelled",
   "metadata": {
     "membership_id": 1,
     "client_id": 1,
@@ -357,8 +357,8 @@ POST /checkouts
 {
   "user_id": "us_...",
   "items": [{"product_id": "prod_...", "quantity": 1}],
-  "success_url": "https://app.gymflow.com/success",
-  "cancel_url": "https://app.gymflow.com/cancel"
+  "success_url": "https://app.irongym.com/success",
+  "cancel_url": "https://app.irongym.com/cancel"
 }
 # Guardar: checkout_url → Enviar al frontend
 
@@ -477,7 +477,7 @@ grep "❌ Error" storage/logs/laravel.log
 ```json
 {
   "info": {
-    "name": "Pagos Recurrentes - Gymflow",
+    "name": "Pagos Recurrentes - IronGym",
     "description": "Testing de Recurrente API"
   },
   "item": [
@@ -492,7 +492,7 @@ grep "❌ Error" storage/logs/laravel.log
         "url": {"raw": "{{RECURRENTE_BASE_URL}}/users", "path": ["users"]},
         "body": {
           "mode": "raw",
-          "raw": "{\"email\": \"test@gymflow.com\", \"name\": \"Test User\"}"
+          "raw": "{\"email\": \"test@irongym.com\", \"name\": \"Test User\"}"
         }
       }
     }

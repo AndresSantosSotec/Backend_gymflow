@@ -8,7 +8,7 @@
 
 ## 📋 INTRODUCCIÓN
 
-Este documento describe cómo integrar GymFlow con sistemas de facturación electrónica para generar facturas válidas fiscalmente.
+Este documento describe cómo integrar IronGym con sistemas de facturación electrónica para generar facturas válidas fiscalmente.
 
 ---
 
@@ -93,7 +93,7 @@ private function sendToFacturama(array $invoiceData)
 [
     'company' => [
         'taxId' => 'RFC12345678ABC',
-        'name' => 'GymFlow',
+        'name' => 'IronGym',
         'address' => [...],
     ],
     'client' => [
@@ -253,7 +253,7 @@ El servicio genera CFDI en formato XML:
     <!-- Emisor (Company) -->
     <cfdi:Emisor
         Rfc="RFC12345678ABC"
-        Nombre="GymFlow"
+        Nombre="IronGym"
     >
         <cfdi:DomicilioFiscal
             Calle="Calle Principal"

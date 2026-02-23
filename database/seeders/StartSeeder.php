@@ -19,37 +19,37 @@ class StartSeeder extends Seeder
         $permissionsList = [
             // Dashboard
             ['name' => 'Ver Dashboard', 'slug' => 'DASHBOARD_VIEW', 'description' => 'Permite ver las estadísticas generales'],
-            
+
             // Clientes
             ['name' => 'Ver Clientes', 'slug' => 'CLIENTS_VIEW', 'description' => 'Permite ver la lista de clientes'],
             ['name' => 'Crear Clientes', 'slug' => 'CLIENTS_CREATE', 'description' => 'Permite registrar nuevos clientes'],
             ['name' => 'Editar Clientes', 'slug' => 'CLIENTS_EDIT', 'description' => 'Permite modificar datos de clientes'],
             ['name' => 'Eliminar Clientes', 'slug' => 'CLIENTS_DELETE', 'description' => 'Permite dar de baja clientes'],
-            
+
             // Planes
             ['name' => 'Ver Planes', 'slug' => 'PLANS_VIEW', 'description' => 'Permite ver los planes de membresía'],
             ['name' => 'Gestionar Planes', 'slug' => 'PLANS_MANAGE', 'description' => 'Permite crear, editar y publicar planes'],
-            
+
             // Membresías
             ['name' => 'Ver Membresías', 'slug' => 'MEMBERSHIPS_VIEW', 'description' => 'Permite ver membresías activas'],
             ['name' => 'Gestionar Membresías', 'slug' => 'MEMBERSHIPS_MANAGE', 'description' => 'Permite asignar y renovar membresías'],
-            
+
             // Pagos
             ['name' => 'Ver Pagos', 'slug' => 'PAYMENTS_VIEW', 'description' => 'Permite ver el historial de pagos'],
             ['name' => 'Gestionar Pagos', 'slug' => 'PAYMENTS_MANAGE', 'description' => 'Permite registrar cobros y devoluciones'],
-            
+
             // Caja
             ['name' => 'Ver Caja', 'slug' => 'CASH_VIEW', 'description' => 'Permite ver movimientos de caja'],
             ['name' => 'Gestionar Caja', 'slug' => 'CASH_MANAGE', 'description' => 'Permite realizar ingresos, egresos y cierres'],
-            
+
             // Inventario
             ['name' => 'Ver Inventario', 'slug' => 'INVENTORY_VIEW', 'description' => 'Permite ver el stock de productos'],
             ['name' => 'Gestionar Inventario', 'slug' => 'INVENTORY_MANAGE', 'description' => 'Permite ajustar stock y catálogo'],
-            
-            // Accesos
-            ['name' => 'Ver Accesos', 'slug' => 'ACCESS_VIEW', 'description' => 'Permite ver registros de entrada (QR/Huella)'],
-            ['name' => 'Gestionar Accesos', 'slug' => 'ACCESS_MANAGE', 'description' => 'Permite autorizar o denegar accesos manuales'],
-            
+
+            // Accesos / Huellas Digitales — ROADMAP FUTURO
+            // ['name' => 'Ver Accesos', 'slug' => 'ACCESS_VIEW', 'description' => 'Permite ver registros de entrada (QR/Huella)'],
+            // ['name' => 'Gestionar Accesos', 'slug' => 'ACCESS_MANAGE', 'description' => 'Permite autorizar o denegar accesos manuales'],
+
             // Configuración y Sistema
             ['name' => 'Ver Configuración', 'slug' => 'SETTINGS_VIEW', 'description' => 'Permite ver los ajustes del sistema'],
             ['name' => 'Gestionar Configuración', 'slug' => 'SETTINGS_MANAGE', 'description' => 'Permite cambiar colores, logos y textos'],
@@ -57,11 +57,11 @@ class StartSeeder extends Seeder
             ['name' => 'Gestionar Roles', 'slug' => 'ROLES_MANAGE', 'description' => 'Permite crear y editar permisos de roles'],
             ['name' => 'Ver Usuarios/Staff', 'slug' => 'USERS_VIEW', 'description' => 'Permite ver la lista de empleados'],
             ['name' => 'Gestionar Usuarios/Staff', 'slug' => 'USERS_MANAGE', 'description' => 'Permite contratar y editar staff'],
-            
+
             // Planificados / Extras
             ['name' => 'Ver Reportes', 'slug' => 'REPORTS_VIEW', 'description' => 'Permite ver reportes y estadísticas avanzadas'],
             ['name' => 'Ver Notificaciones', 'slug' => 'NOTIFICATIONS_VIEW', 'description' => 'Permite ver notificaciones del sistema'],
-            ['name' => 'Ver Cámaras', 'slug' => 'CAMERAS_VIEW', 'description' => 'Permite ver las cámaras de seguridad'],
+            // ['name' => 'Ver Cámaras', 'slug' => 'CAMERAS_VIEW', 'description' => 'Permite ver las cámaras de seguridad'], // ROADMAP FUTURO
 
             // Módulo Comercial
             ['name' => 'Ver Productos', 'slug' => 'PRODUCTS_VIEW', 'description' => 'Permite ver el catálogo de productos'],
@@ -81,7 +81,7 @@ class StartSeeder extends Seeder
         }
 
         // 2. Crear Roles con sus asignaciones
-        
+
         // --- ADMIN: Todo
         $adminRole = Role::updateOrCreate(
             ['slug' => 'admin'],
@@ -110,18 +110,17 @@ class StartSeeder extends Seeder
             'MEMBERSHIPS_VIEW', 'MEMBERSHIPS_MANAGE',
             'PAYMENTS_VIEW', 'PAYMENTS_MANAGE',
             'CASH_VIEW', 'CASH_MANAGE',
-            'ACCESS_VIEW', 'ACCESS_MANAGE',
             'INVENTORY_VIEW'
         ])->pluck('id');
         $staffRole->permissions()->sync($staffPermissions);
 
         // 3. Crear 3 Usuarios Parametrizados
-        
+
         // Usuario Admin
         User::updateOrCreate(
-            ['email' => 'admin@gymflow.com'],
+            ['email' => 'admin@irongym.com'],
             [
-                'name' => 'Dueño Gymflow',
+                'name' => 'Dueño IronGym',
                 'username' => 'admin',
                 'password' => Hash::make('admin123'),
                 'role_id' => $adminRole->id,
@@ -133,7 +132,7 @@ class StartSeeder extends Seeder
 
         // Usuario Gerente
         User::updateOrCreate(
-            ['email' => 'gerente@gymflow.com'],
+            ['email' => 'gerente@irongym.com'],
             [
                 'name' => 'Carlos Gerente',
                 'username' => 'carlos.manager',
@@ -148,7 +147,7 @@ class StartSeeder extends Seeder
 
         // Usuario Staff/Recepción
         User::updateOrCreate(
-            ['email' => 'recepcion@gymflow.com'],
+            ['email' => 'recepcion@irongym.com'],
             [
                 'name' => 'Ana Recepción',
                 'username' => 'ana.staff',

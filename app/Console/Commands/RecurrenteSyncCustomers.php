@@ -69,7 +69,7 @@ class RecurrenteSyncCustomers extends Command
                 $response = $this->recurrente->createUser([
                     'first_name' => $firstName,
                     'last_name'  => $lastName,
-                    'email'      => $client->email ?? "client{$client->id}@gymflow.local",
+                    'email'      => $client->email ?? "client{$client->id}@irongym.local",
                     'phone'      => $client->phone ?? null,
                 ]);
 

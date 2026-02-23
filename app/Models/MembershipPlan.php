@@ -17,6 +17,8 @@ class MembershipPlan extends Model
         'description',
         'features',
         'published',
+        'recurrente_product_id',
+        'recurrente_price_id',
     ];
 
     protected $casts = [

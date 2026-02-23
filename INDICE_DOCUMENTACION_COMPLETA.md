@@ -123,7 +123,7 @@ GUIA_VISUAL_FRONTEND_RECIBOS.md
 ESTADO_ACTUAL.md
 └─ Estado de todas las tablas
 
-(+ Archivos de migraciones en Backend-Gymflow/database/migrations/)
+(+ Archivos de migraciones en Backend-IronGym/database/migrations/)
 └─ 2026_02_15_create_receipts_table.php
 ```
 
@@ -142,7 +142,7 @@ PRD.md
 
 ### Backend (Django/Laravel)
 ```
-Backend-Gymflow/
+Backend-IronGym/
 ├─ 📄 MODULO_PDFS_FACTURAS.md              ← Lee aquí primero
 ├─ 📄 FACTURACION_ELECTRONICA.md           ← Para facturación
 ├─ 📄 CHECKLIST_PDFS_FACTURAS.md          ← Validación
@@ -182,7 +182,7 @@ Backend-Gymflow/
 ### Frontend (React)
 ```
 gym-access-qr-manage/
-├─ 📄 (Ninguna doc aquí, ver Backend-Gymflow/)
+├─ 📄 (Ninguna doc aquí, ver Backend-IronGym/)
 │
 ├─ src/
 │  ├─ services/
@@ -218,7 +218,7 @@ gym-access-qr-manage/
 ```
 1. Lee: RESUMEN_SISTEMA_RECIBOS.md → Entender arquitectura
 2. Lee: MODULO_PDFS_FACTURAS.md → Backend details
-3. Mira: Backend-Gymflow/app/Services/ReceiptPdfService.php
+3. Mira: Backend-IronGym/app/Services/ReceiptPdfService.php
 4. Lee: EJEMPLOS_PRUEBA_PDFS.md → Pruebas
 ```
 
@@ -234,8 +234,8 @@ gym-access-qr-manage/
 ```
 1. Lee: FACTURACION_ELECTRONICA.md → Opción 2: Facturama
 2. Obtén credenciales en: https://www.facturama.mx/API/
-3. Configura en: Backend-Gymflow/config/billing.php
-4. Implementa: Backend-Gymflow/app/Services/ElectronicBillingService.php
+3. Configura en: Backend-IronGym/config/billing.php
+4. Implementa: Backend-IronGym/app/Services/ElectronicBillingService.php
 5. Prueba: EJEMPLOS_PRUEBA_PDFS.md
 ```
 
@@ -317,7 +317,7 @@ gym-access-qr-manage/
 1. RESUMEN_SISTEMA_RECIBOS.md (5 min)
 2. MODULO_PDFS_FACTURAS.md (15 min)
 3. EJEMPLOS_PRUEBA_PDFS.md (10 min)
-4. Código en: Backend-Gymflow/app/ (30 min)
+4. Código en: Backend-IronGym/app/ (30 min)
 5. Experimenta ejecutando ejemplos (∞)
 ```
 
@@ -375,7 +375,7 @@ Ver: INTEGRACION_FRONTEND_RECIBOS.md → Troubleshooting
 ### Para Preguntas sobre Facturación
 ```
 Ver: FACTURACION_ELECTRONICA.md → Tu proveedor
-Obtén credenciales y configura en Backend-Gymflow/config/billing.php
+Obtén credenciales y configura en Backend-IronGym/config/billing.php
 ```
 
 ---

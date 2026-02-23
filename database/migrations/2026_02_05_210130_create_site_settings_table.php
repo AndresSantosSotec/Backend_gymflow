@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('site_settings', function (Blueprint $table) {
             $table->id();
-            $table->string('gym_name')->default('GymFlow');
+            $table->string('gym_name')->default('IronGym');
             $table->string('slogan')->nullable();
             $table->text('about_text')->nullable();
             $table->string('phone', 50)->nullable();

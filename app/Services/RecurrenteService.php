@@ -68,6 +68,7 @@ class RecurrenteService
                     'Accept'       => 'application/json',
                 ])->timeout(30); // FIX 1.1 — 30s timeout
 
+                /** @var \Illuminate\Http\Client\Response $response */
                 $response = match (strtoupper($method)) {
                     'GET'    => $http->get($url),
                     'POST'   => $http->post($url, $body),
@@ -188,6 +189,30 @@ class RecurrenteService
     public function getProduct(string $productId): array
     {
         return $this->request('GET', "/products/{$productId}");
+    }
+
+    /**
+     * PATCH /api/products/{id} — Actualizar producto en Recurrente.
+     *
+     * Permite actualizar nombre, descripción, y precio (vía prices_attributes).
+     * Para actualizar precio, se necesita el price_id.
+     *
+     * @param string $productId  ID del producto en Recurrente (prod_xxx)
+     * @param array  $data       Payload con estructura { product: { ... } }
+     */
+    public function updateProduct(string $productId, array $data): array
+    {
+        return $this->request('PATCH', "/products/{$productId}", $data);
+    }
+
+    /**
+     * DELETE /api/products/{id} — Eliminar producto en Recurrente.
+     *
+     * @param string $productId  ID del producto en Recurrente (prod_xxx)
+     */
+    public function deleteProduct(string $productId): array
+    {
+        return $this->request('DELETE', "/products/{$productId}");
     }
 
     // ─────────────────────────────────────────────────────────────

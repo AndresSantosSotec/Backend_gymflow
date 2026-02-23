@@ -30,8 +30,8 @@ FINGERPRINT_ENABLED=true
 FINGERPRINT_TIMEOUT=30
 
 # Configuración de Email
-MAIL_FROM_ADDRESS=noreply@gymflow.local
-MAIL_FROM_NAME="GymFlow System"
+MAIL_FROM_ADDRESS=noreply@irongym.local
+MAIL_FROM_NAME="IronGym System"
 ```
 
 ### 2. Ejecutar Migración Fresh

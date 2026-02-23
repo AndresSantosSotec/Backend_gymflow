@@ -136,7 +136,7 @@
 ## 📄 ARCHIVOS CREADOS
 
 ```
-Backend-Gymflow/
+Backend-IronGym/
 ├── app/
 │   ├── Models/
 │   │   └── Receipt.php ............................ ✅ NUEVO

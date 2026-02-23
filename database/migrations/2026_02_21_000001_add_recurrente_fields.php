@@ -15,7 +15,7 @@ return new class extends Migration
         // ── clients: guardar IDs de Recurrente ───────────────────────
         Schema::table('clients', function (Blueprint $table) {
             // ID del usuario en Recurrente (se crea al sincronizar)
-            $table->string('recurrente_user_id')->nullable()->after('fiscal_address')
+            $table->string('recurrente_user_id')->nullable()
                   ->comment('ID del cliente en la plataforma Recurrente');
 
             // Token del método de pago (tarjeta) guardado

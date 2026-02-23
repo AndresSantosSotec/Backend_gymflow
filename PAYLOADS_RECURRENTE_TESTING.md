@@ -25,7 +25,7 @@ Accept: application/json
 **Body (JSON):**
 ```json
 {
-  "email": "cliente1@gymflow.com",
+  "email": "cliente1@irongym.com",
   "name": "Juan Pérez García"
 }
 ```
@@ -37,7 +37,7 @@ curl -X POST "https://app.recurrente.com/api/users" \
   -H "X-SECRET-KEY: sk_test_xxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "cliente1@gymflow.com",
+    "email": "cliente1@irongym.com",
     "name": "Juan Pérez García"
   }'
 ```
@@ -46,7 +46,7 @@ curl -X POST "https://app.recurrente.com/api/users" \
 ```json
 {
   "id": "us_dsvxz8nkq0s3h0m1",
-  "email": "cliente1@gymflow.com",
+  "email": "cliente1@irongym.com",
   "name": "Juan Pérez García",
   "created_at": "2026-02-21T10:30:00Z"
 }
@@ -132,8 +132,8 @@ curl -X POST "https://app.recurrente.com/api/products" \
       "quantity": 1
     }
   ],
-  "success_url": "https://app.gymflow.com/memberships/success?checkout_id={checkout_id}",
-  "cancel_url": "https://app.gymflow.com/memberships/cancelled",
+  "success_url": "https://app.irongym.com/memberships/success?checkout_id={checkout_id}",
+  "cancel_url": "https://app.irongym.com/memberships/cancelled",
   "metadata": {
     "membership_id": 1,
     "client_id": 1,
@@ -157,8 +157,8 @@ curl -X POST "https://app.recurrente.com/api/checkouts" \
         "quantity": 1
       }
     ],
-    "success_url": "https://app.gymflow.com/memberships/success?checkout_id={checkout_id}",
-    "cancel_url": "https://app.gymflow.com/memberships/cancelled",
+    "success_url": "https://app.irongym.com/memberships/success?checkout_id={checkout_id}",
+    "cancel_url": "https://app.irongym.com/memberships/cancelled",
     "metadata": {
       "membership_id": 1,
       "client_id": 1
@@ -404,7 +404,7 @@ curl -X POST "https://app.recurrente.com/api/users" \
   -H "X-PUBLIC-KEY: pk_test_xxxxx" \
   -H "X-SECRET-KEY: sk_test_xxxxx" \
   -H "Content-Type: application/json" \
-  -d '{"email": "test@gymflow.com", "name": "Test User"}'
+  -d '{"email": "test@irongym.com", "name": "Test User"}'
 # Guardar: user_id
 ```
 
@@ -427,8 +427,8 @@ curl -X POST "https://app.recurrente.com/api/checkouts" \
   -d '{
     "user_id": "us_xxxxx",
     "items": [{"product_id": "prod_xxxxx", "quantity": 1}],
-    "success_url": "https://app.gymflow.com/success",
-    "cancel_url": "https://app.gymflow.com/cancel"
+    "success_url": "https://app.irongym.com/success",
+    "cancel_url": "https://app.irongym.com/cancel"
   }'
 # Guardar: checkout_url → Abrir en navegador
 ```

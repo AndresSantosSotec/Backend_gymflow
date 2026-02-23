@@ -26,7 +26,7 @@ class ReportExportController extends Controller
     private function getEmpresaName(): string
     {
         $settings = SiteSetting::first();
-        return $settings?->gym_name ?? 'GymFlow';
+        return $settings?->gym_name ?? 'IronGym';
     }
 
     // ──────────────────────────────────────

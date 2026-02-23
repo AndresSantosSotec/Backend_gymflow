@@ -1,4 +1,4 @@
-# 🎯 ESTADO FINAL DEL BACKEND - Gymflow API
+# 🎯 ESTADO FINAL DEL BACKEND - IronGym API
 
 **Fecha:** 5 de Febrero de 2026  
 **Laravel:** 12.50.0 | **PHP:** 8.3.16 | **MySQL:** gym_flow
@@ -273,8 +273,8 @@ Retorna:
 
 ### Usuarios
 ```
-admin@gymflow.com / password123
-test@gymflow.com / password123
+admin@irongym.com / password123
+test@irongym.com / password123
 ```
 
 ### Planes de Membresía
@@ -335,7 +335,7 @@ test@gymflow.com / password123
 
 ### Iniciar Servidor
 ```bash
-cd Backend-Gymflow
+cd Backend-IronGym
 php artisan serve
 ```
 **URL:** http://127.0.0.1:8000
@@ -387,7 +387,7 @@ php artisan route:list --path=api
 
 ## 🎉 RESUMEN EJECUTIVO
 
-**El backend de Gymflow está 100% funcional para todas las operaciones críticas del negocio:**
+**El backend de IronGym está 100% funcional para todas las operaciones críticas del negocio:**
 
 ✅ **Autenticación segura** con Laravel Sanctum  
 ✅ **Gestión completa de clientes** con soft deletes  

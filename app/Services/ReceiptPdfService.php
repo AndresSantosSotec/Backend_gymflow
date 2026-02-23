@@ -282,10 +282,10 @@ class ReceiptPdfService
     private function getCompanyData(bool $includeTax = false): array
     {
         $data = [
-            'companyName' => config('app.name', 'GymFlow'),
+            'companyName' => config('app.name', 'IronGym'),
             'companyAddress' => config('site.company_address', 'Guatemala, Guatemala'),
             'companyPhone' => config('site.company_phone', '(502) 0000-0000'),
-            'companyEmail' => config('site.company_email', 'info@gymflow.gt'),
+            'companyEmail' => config('site.company_email', 'info@irongym.gt'),
         ];
 
         if ($includeTax) {

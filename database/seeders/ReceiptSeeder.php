@@ -33,7 +33,7 @@ class ReceiptSeeder extends Seeder
                 'paid_at' => now(),
                 'email_sent' => true,
                 'email_sent_at' => now(),
-                'sent_to_email' => $client->email ?? 'test@gymflow.local',
+                'sent_to_email' => $client->email ?? 'test@irongym.local',
                 'is_invoiced' => true,
                 'invoiced_at' => now(),
                 'invoice_number' => Receipt::generateInvoiceNumber(),

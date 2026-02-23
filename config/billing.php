@@ -24,7 +24,7 @@ return [
 
     // Configuración de empresa
     'company' => [
-        'name' => env('COMPANY_NAME', 'GymFlow'),
+        'name' => env('COMPANY_NAME', 'IronGym'),
         'tax_id' => env('COMPANY_TAX_ID', ''),
         'address' => env('COMPANY_ADDRESS', ''),
         'phone' => env('COMPANY_PHONE', ''),

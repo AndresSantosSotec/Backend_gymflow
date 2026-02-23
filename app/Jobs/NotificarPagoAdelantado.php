@@ -51,7 +51,7 @@ class NotificarPagoAdelantado implements ShouldQueue
             if ($client->email) {
                 Mail::send([], [], function ($message) use ($client, $resultado) {
                     $message->to($client->email, $client->full_name)
-                            ->subject('✅ Confirmación de pago adelantado - Gymflow')
+                            ->subject('✅ Confirmación de pago adelantado - IronGym')
                             ->html($this->buildEmailHtml($client, $resultado));
                 });
 
@@ -96,7 +96,7 @@ class NotificarPagoAdelantado implements ShouldQueue
             <html><body style='font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px'>
             <h2 style='color:#2563eb'>✅ Pago adelantado registrado</h2>
             <p>Hola <strong>{$nombre}</strong>,</p>
-            <p>Confirmamos el registro de tu pago adelantado en Gymflow.</p>
+            <p>Confirmamos el registro de tu pago adelantado en IronGym.</p>
             <table style='width:100%;border-collapse:collapse;margin:20px 0'>
               <tr style='background:#f3f4f6'>
                 <td style='padding:10px;border:1px solid #e5e7eb'><strong>Cuotas pagadas</strong></td>
@@ -114,7 +114,7 @@ class NotificarPagoAdelantado implements ShouldQueue
             {$descuentoLinea}
             {$proximaLinea}
             <p style='color:#6b7280;font-size:13px'>Este es un mensaje automático. Por favor no respondas a este email.</p>
-            <p style='color:#6b7280;font-size:13px'>Gymflow — Sistema de Gestión de Gimnasio</p>
+            <p style='color:#6b7280;font-size:13px'>IronGym — Sistema de Gestión de Gimnasio</p>
             </body></html>
         ";
     }

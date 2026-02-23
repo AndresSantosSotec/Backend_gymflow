@@ -11,6 +11,7 @@ use App\Services\RecurrenteService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * RecurrenteController
@@ -61,11 +62,10 @@ class RecurrenteController extends Controller
 
         // Crear usuario en Recurrente si no existe
         if (! $client->recurrente_user_id) {
-            $nameParts = explode(' ', trim($client->name), 2);
             $userRes   = $this->recurrente->createUser([
-                'first_name' => $nameParts[0],
-                'last_name'  => $nameParts[1] ?? '-',
-                'email'      => $client->email ?? "client{$client->id}@gymflow.local",
+                'first_name' => $client->first_name ?: 'Cliente',
+                'last_name'  => $client->last_name ?: '-',
+                'email'      => $client->email ?? "client{$client->id}@irongym.local",
                 'phone'      => $client->phone ?? null,
             ]);
             $client->update(['recurrente_user_id' => $userRes['id']]);
@@ -97,9 +97,19 @@ class RecurrenteController extends Controller
             'concept'                => "Membresía: {$plan->name}",
         ]);
 
+        // Debug: log full checkout response to find the correct URL field
+        \Illuminate\Support\Facades\Log::info('[Recurrente] Full checkout response keys: ' . implode(', ', array_keys($checkout)), ['checkout' => $checkout]);
+
+        // Recurrente returns `checkout_url` or `url` or `storefront_link` depending on version
+        $checkoutUrl = $checkout['checkout_url']
+            ?? $checkout['url']
+            ?? $checkout['storefront_link']
+            ?? null;
+
         return response()->json([
-            'checkout_url' => $checkout['checkout_url'] ?? $checkout['url'] ?? null,
+            'checkout_url' => $checkoutUrl,
             'checkout_id'  => $checkout['id'] ?? null,
+            '_debug_keys'  => array_keys($checkout), // Remove after debugging
         ]);
     }
 
@@ -150,7 +160,7 @@ class RecurrenteController extends Controller
             $concept       = "Membresía: {$plan->name}";
         } else {
             $amountInCents = $data['amount_in_cents'];
-            $concept       = $data['concept'] ?? 'Pago Gymflow';
+            $concept       = $data['concept'] ?? 'Pago IronGym';
         }
 
         // ── FIX 2.2 — Anti doble-click: pago duplicado en los últimos 60s ─
@@ -350,5 +360,108 @@ class RecurrenteController extends Controller
                 ->with('membershipPlan')
                 ->first(),
         ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  CHECKOUT PÚBLICO (sin autenticación — auto-registro)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Crear checkout público para suscripción.
+     * Crea o encuentra al cliente automáticamente por email,
+     * luego genera el checkout de Recurrente.
+     *
+     * POST /api/public/checkout
+     *
+     * Request:  { name, email, phone, plan_id }
+     * Response: { checkout_url, checkout_id, client_id }
+     */
+    public function publicCheckout(Request $request)
+    {
+        $data = $request->validate([
+            'name'    => 'required|string|max:255',
+            'email'   => 'required|email|max:255',
+            'phone'   => 'nullable|string|max:50',
+            'plan_id' => 'required|exists:membership_plans,id',
+        ]);
+
+        $plan = MembershipPlan::findOrFail($data['plan_id']);
+
+        if (! $plan->recurrente_product_id) {
+            return response()->json([
+                'error' => 'Este plan aún no está disponible para pago en línea.',
+            ], 422);
+        }
+
+        return DB::transaction(function () use ($data, $plan) {
+            // Buscar o crear cliente por email
+            $client = Client::where('email', $data['email'])->first();
+
+            if (! $client) {
+                $nameParts = explode(' ', trim($data['name']), 2);
+                $client = Client::create([
+                    'first_name' => $nameParts[0] ?: 'Cliente',
+                    'last_name'  => $nameParts[1] ?? '-',
+                    'email'  => $data['email'],
+                    'phone'  => $data['phone'] ?? null,
+                    'status' => 'active',
+                    'qr_code' => 'GYM-' . strtoupper(Str::random(8)),
+                ]);
+
+                Log::info('[PublicCheckout] Cliente creado automáticamente', [
+                    'client_id' => $client->id,
+                    'email'     => $client->email,
+                ]);
+            }
+
+            // Crear usuario en Recurrente si no existe
+            if (! $client->recurrente_user_id) {
+                $nameParts = explode(' ', trim($data['name']), 2);
+                $userRes   = $this->recurrente->createUser([
+                    'first_name' => $nameParts[0],
+                    'last_name'  => $nameParts[1] ?? '-',
+                    'email'      => $data['email'],
+                    'phone'      => $data['phone'] ?? null,
+                ]);
+                $client->update(['recurrente_user_id' => $userRes['id']]);
+            }
+
+            $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+            $successUrl  = "{$frontendUrl}/p/pago-exitoso?client_id={$client->id}&plan_id={$plan->id}";
+            $cancelUrl   = "{$frontendUrl}/p/pago-fallido?plan_id={$plan->id}";
+
+            $checkout = $this->recurrente->createCheckout([
+                'user_id'     => $client->recurrente_user_id,
+                'items'       => [[
+                    'product_id' => $plan->recurrente_product_id,
+                    'quantity'   => 1,
+                ]],
+                'success_url' => $successUrl,
+                'cancel_url'  => $cancelUrl,
+            ]);
+
+            RecurrentePayment::create([
+                'client_id'              => $client->id,
+                'membership_plan_id'     => $plan->id,
+                'recurrente_checkout_id' => $checkout['id'] ?? null,
+                'type'                   => 'checkout',
+                'amount_in_cents'        => RecurrenteService::toCents((float) $plan->price),
+                'currency'               => 'GTQ',
+                'status'                 => 'pending',
+                'concept'                => "Suscripción: {$plan->name}",
+            ]);
+
+            Log::info('[PublicCheckout] Checkout creado', [
+                'client_id'   => $client->id,
+                'plan_id'     => $plan->id,
+                'checkout_id' => $checkout['id'] ?? null,
+            ]);
+
+            return response()->json([
+                'checkout_url' => $checkout['checkout_url'] ?? $checkout['url'] ?? null,
+                'checkout_id'  => $checkout['id'] ?? null,
+                'client_id'    => $client->id,
+            ]);
+        });
     }
 }

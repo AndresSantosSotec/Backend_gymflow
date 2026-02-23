@@ -28,10 +28,40 @@ use App\Http\Controllers\Api\PaymentInstallmentController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\FingerprintStatusController;
 use App\Http\Controllers\Api\RecurrenteController;
-use App\Http\Controllers\Api\PagoAdelantoController;
 use App\Http\Controllers\Api\MembresiaLifecycleController;
+use App\Http\Controllers\Api\PagoAdelantoController;
+use App\Http\Controllers\RecurrenteWebhookController;
+use App\Http\Controllers\Api\ReceiptController as ApiReceiptController;
+use App\Services\ReceiptPdfService;
+use App\Models\Receipt;
+use App\Models\Payment;
+use Illuminate\Support\Facades\DB;
 
 // Public routes
+
+Route::get('/health', function () {
+    return response()->json(['status' => 'ok']);
+});
+
+Route::get('/version', function () {
+    return response()->json(['version' => '1.0.0']);
+});
+
+Route::get('/time', function () {
+    return response()->json(['server_time' => now()]);
+});
+
+Route::get('/bdd', function () {
+    try {
+        DB::connection()->getPdo();
+        return response()->json(['database' => 'connected']);
+    } catch (\Exception $e) {
+        return response()->json(['database' => 'error', 'message' => $e->getMessage()], 500);
+    }
+});
+
+
+
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/site-settings', [SiteSettingController::class, 'index']);
@@ -45,66 +75,122 @@ Route::post('/public/leads', [LeadController::class, 'publicStore']);
 Route::post('/access/verify-qr', [AccessLogController::class, 'verifyQR']);
 Route::post('/access/verify-fingerprint', [AccessLogController::class, 'verifyFingerprint']);
 
+// Recurrente Webhook (público, sin autenticación — Recurrente envía aquí)
+Route::post('/webhooks/recurrente', [RecurrenteWebhookController::class, 'handle']);
+
+// Checkout público (auto-registro + pago — sin autenticación)
+Route::post('/public/checkout', [RecurrenteController::class, 'publicCheckout']);
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     // Auth routes
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
 
-    // Resource routes
-    Route::apiResource('clients', ClientController::class);
-    Route::apiResource('membership-plans', MembershipPlanController::class);
-    Route::apiResource('memberships', MembershipController::class);
-    Route::apiResource('payments', PaymentController::class);
-    Route::apiResource('access-logs', AccessLogController::class);
-    Route::apiResource('leads', LeadController::class);
-    Route::apiResource('blog-posts', BlogPostController::class);
-    Route::apiResource('cash-transactions', CashTransactionController::class);
-    Route::apiResource('inventory-items', InventoryItemController::class);
-    Route::apiResource('users', UserController::class);
-    Route::apiResource('roles', RoleController::class);
+    // Resource routes (con middleware de permisos — OR: basta tener 1 permiso del módulo)
+    Route::apiResource('clients', ClientController::class)
+        ->middleware('permission:CLIENTS_VIEW,CLIENTS_CREATE,CLIENTS_EDIT,CLIENTS_DELETE');
+    Route::apiResource('membership-plans', MembershipPlanController::class)
+        ->middleware('permission:PLANS_VIEW,PLANS_MANAGE');
+    Route::apiResource('memberships', MembershipController::class)
+        ->middleware('permission:MEMBERSHIPS_VIEW,MEMBERSHIPS_MANAGE');
+    Route::apiResource('payments', PaymentController::class)
+        ->middleware('permission:PAYMENTS_VIEW,PAYMENTS_MANAGE');
+    // ROADMAP FUTURO — Control de Acceso y Huellas Digitales
+    // Route::apiResource('access-logs', AccessLogController::class)
+    //     ->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE');
+    Route::apiResource('leads', LeadController::class)
+        ->middleware('permission:CLIENTS_VIEW,CLIENTS_CREATE');
+    Route::apiResource('blog-posts', BlogPostController::class)
+        ->middleware('permission:SETTINGS_VIEW,SETTINGS_MANAGE');
+    Route::apiResource('cash-transactions', CashTransactionController::class)
+        ->middleware('permission:CASH_VIEW,CASH_MANAGE');
+    Route::apiResource('inventory-items', InventoryItemController::class)
+        ->middleware('permission:INVENTORY_VIEW,INVENTORY_IN,INVENTORY_OUT,INVENTORY_MANAGE');
+    Route::apiResource('users', UserController::class)
+        ->middleware('permission:USERS_VIEW,USERS_MANAGE');
+    Route::apiResource('roles', RoleController::class)
+        ->middleware('permission:ROLES_VIEW,ROLES_MANAGE');
 
     // Membership Plans special routes
-    Route::patch('/membership-plans/{id}/toggle-published', [MembershipPlanController::class, 'togglePublished']);
-    Route::get('/membership-plans/slug/{slug}', [MembershipPlanController::class, 'getBySlug']);
+    Route::patch('/membership-plans/{id}/toggle-published', [MembershipPlanController::class, 'togglePublished'])
+        ->middleware('permission:PLANS_MANAGE');
+    Route::get('/membership-plans/slug/{slug}', [MembershipPlanController::class, 'getBySlug'])
+        ->middleware('permission:PLANS_VIEW,PLANS_MANAGE');
+
+    // Membership Plans ↔ Recurrente sync
+    Route::post('/membership-plans/{id}/sync-recurrente', [MembershipPlanController::class, 'syncToRecurrente'])
+        ->middleware('permission:PLANS_MANAGE');
+    Route::post('/membership-plans/sync-all-recurrente', [MembershipPlanController::class, 'syncAllToRecurrente'])
+        ->middleware('permission:PLANS_MANAGE');
+    Route::get('/membership-plans/{id}/recurrente-status', [MembershipPlanController::class, 'recurrenteStatus'])
+        ->middleware('permission:PLANS_VIEW,PLANS_MANAGE');
+
+    // ── Recurrente: Checkout, Cobros, Suscripciones ──────────────────
+    Route::prefix('recurrente')->middleware('permission:PAYMENTS_VIEW,PAYMENTS_MANAGE')->group(function () {
+        Route::post('/checkout', [RecurrenteController::class, 'createCheckout']);
+        Route::post('/charge-card', [RecurrenteController::class, 'chargeCard']);
+        Route::post('/subscriptions', [RecurrenteController::class, 'createSubscription']);
+        Route::delete('/subscriptions/{id}', [RecurrenteController::class, 'cancelSubscription']);
+        Route::get('/payments/history/{clientId}', [RecurrenteController::class, 'paymentHistory']);
+        Route::get('/payments/status/{clientId}', [RecurrenteController::class, 'clientPaymentStatus']);
+    });
 
     // Access verification (CRÍTICO - Core business logic)
     // Route::post('/access/verify-qr', [AccessLogController::class, 'verifyQR']); // Moved to public
     // Route::post('/access/verify-fingerprint', [AccessLogController::class, 'verifyFingerprint']); // Moved to public
-    Route::get('/access/recent', [AccessLogController::class, 'recent']);
-    Route::get('/access/by-client/{clientId}', [AccessLogController::class, 'byClient']);
+    // ROADMAP FUTURO — Accesos
+    // Route::get('/access/recent', [AccessLogController::class, 'recent'])
+    //     ->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE');
+    // Route::get('/access/by-client/{clientId}', [AccessLogController::class, 'byClient'])
+    //     ->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE');
 
     // Clients special routes
-    Route::get('/clients/qr/{qrCode}', [ClientController::class, 'getByQR']);
-    Route::get('/clients/dni/{dni}', [ClientController::class, 'getByDni']);
-    Route::get('/clients/statistics/all', [ClientController::class, 'statistics']);
-    Route::post('/clients/{id}/upload-photo', [ClientController::class, 'uploadPhoto']);
-    Route::delete('/clients/{id}/photo', [ClientController::class, 'removePhoto']);
-    Route::post('/clients/{id}/fingerprint', [ClientController::class, 'registerFingerprint']);
-    Route::delete('/clients/{id}/fingerprint', [ClientController::class, 'removeFingerprint']);
-    Route::get('/clients/{id}/fingerprint', [ClientController::class, 'fingerprintStatus']);
-    Route::post('/clients/{id}/regenerate-qr', [ClientController::class, 'regenerateQR']);
-    Route::patch('/clients/{id}/status', [ClientController::class, 'toggleStatus']);
+    Route::get('/clients/qr/{qrCode}', [ClientController::class, 'getByQR'])
+        ->middleware('permission:CLIENTS_VIEW');
+    Route::get('/clients/dni/{dni}', [ClientController::class, 'getByDni'])
+        ->middleware('permission:CLIENTS_VIEW');
+    Route::get('/clients/statistics/all', [ClientController::class, 'statistics'])
+        ->middleware('permission:CLIENTS_VIEW');
+    Route::post('/clients/{id}/upload-photo', [ClientController::class, 'uploadPhoto'])
+        ->middleware('permission:CLIENTS_EDIT');
+    Route::delete('/clients/{id}/photo', [ClientController::class, 'removePhoto'])
+        ->middleware('permission:CLIENTS_EDIT');
+    // ROADMAP FUTURO — Huellas Digitales
+    // Route::post('/clients/{id}/fingerprint', [ClientController::class, 'registerFingerprint'])
+    //     ->middleware('permission:CLIENTS_EDIT,ACCESS_MANAGE');
+    // Route::delete('/clients/{id}/fingerprint', [ClientController::class, 'removeFingerprint'])
+    //     ->middleware('permission:CLIENTS_EDIT,ACCESS_MANAGE');
+    // Route::get('/clients/{id}/fingerprint', [ClientController::class, 'fingerprintStatus'])
+    //     ->middleware('permission:CLIENTS_VIEW,ACCESS_VIEW');
+    Route::post('/clients/{id}/regenerate-qr', [ClientController::class, 'regenerateQR'])
+        ->middleware('permission:CLIENTS_EDIT');
+    Route::patch('/clients/{id}/status', [ClientController::class, 'toggleStatus'])
+        ->middleware('permission:CLIENTS_EDIT');
 
-    // Fingerprint Device/Server Management
-    Route::prefix('fingerprint-status')->group(function () {
-        Route::get('/device-status', [FingerprintStatusController::class, 'deviceStatus']);
-        Route::post('/capture', [FingerprintStatusController::class, 'capture']);
-        Route::get('/list', [FingerprintStatusController::class, 'listFingerprints']);
-        Route::post('/sync', [FingerprintStatusController::class, 'syncAll']);
-        Route::get('/test-connection', [FingerprintStatusController::class, 'testConnection']);
-    });
+    // ROADMAP FUTURO — Fingerprint Device/Server Management
+    // Route::prefix('fingerprint-status')->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE')->group(function () {
+    //     Route::get('/device-status', [FingerprintStatusController::class, 'deviceStatus']);
+    //     Route::post('/capture', [FingerprintStatusController::class, 'capture']);
+    //     Route::get('/list', [FingerprintStatusController::class, 'listFingerprints']);
+    //     Route::post('/sync', [FingerprintStatusController::class, 'syncAll']);
+    //     Route::get('/test-connection', [FingerprintStatusController::class, 'testConnection']);
+    // });
 
     // Memberships special routes
-    Route::post('/memberships/assign', [MembershipController::class, 'assign']);
+    Route::post('/memberships/assign', [MembershipController::class, 'assign'])
+        ->middleware('permission:MEMBERSHIPS_MANAGE');
 
     // Payments special routes
-    Route::get('/payments/client/{clientId}', [PaymentController::class, 'byClient']);
-    Route::get('/payments/revenue/stats', [PaymentController::class, 'revenue']);
-    Route::patch('/payments/{id}/status', [PaymentController::class, 'updateStatus']);
+    Route::get('/payments/client/{clientId}', [PaymentController::class, 'byClient'])
+        ->middleware('permission:PAYMENTS_VIEW');
+    Route::get('/payments/revenue/stats', [PaymentController::class, 'revenue'])
+        ->middleware('permission:PAYMENTS_VIEW');
+    Route::patch('/payments/{id}/status', [PaymentController::class, 'updateStatus'])
+        ->middleware('permission:PAYMENTS_MANAGE');
 
     // Payment Installments (Cuotas)
-    Route::prefix('installments')->group(function () {
+    Route::prefix('installments')->middleware('permission:PAYMENTS_VIEW,PAYMENTS_MANAGE')->group(function () {
         Route::get('/', [PaymentInstallmentController::class, 'index']);
         Route::get('/summary', [PaymentInstallmentController::class, 'summary']);
         Route::get('/membership/{membershipId}', [PaymentInstallmentController::class, 'byMembership']);
@@ -113,7 +199,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Receipts (Recibos y Facturas)
-    Route::prefix('receipts')->group(function () {
+    Route::prefix('receipts')->middleware('permission:PAYMENTS_VIEW,PAYMENTS_MANAGE')->group(function () {
         // Specific routes BEFORE resource (to avoid conflicts)
         Route::get('/client/{clientId}', [ReceiptController::class, 'byClient']);
         Route::get('/statistics/all', [ReceiptController::class, 'statistics']);
@@ -143,26 +229,39 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     // Leads special routes (BEFORE apiResource to avoid conflicts)
-    Route::get('/leads/statistics/all', [LeadController::class, 'statistics']);
-    Route::post('/leads/{id}/convert', [LeadController::class, 'convertToClient']);
+    Route::get('/leads/statistics/all', [LeadController::class, 'statistics'])
+        ->middleware('permission:CLIENTS_VIEW');
+    Route::post('/leads/{id}/convert', [LeadController::class, 'convertToClient'])
+        ->middleware('permission:CLIENTS_CREATE');
 
     // Site Settings
-    Route::post('/site-settings', [SiteSettingController::class, 'store']);
-    Route::post('/site-settings/upload-hero-images', [SiteSettingController::class, 'uploadHeroImages']);
-    Route::delete('/site-settings/hero-image', [SiteSettingController::class, 'deleteHeroImage']);
+    Route::post('/site-settings', [SiteSettingController::class, 'store'])
+        ->middleware('permission:SETTINGS_MANAGE');
+    Route::post('/site-settings/upload-hero-images', [SiteSettingController::class, 'uploadHeroImages'])
+        ->middleware('permission:SETTINGS_MANAGE');
+    Route::delete('/site-settings/hero-image', [SiteSettingController::class, 'deleteHeroImage'])
+        ->middleware('permission:SETTINGS_MANAGE');
 
     // Módulos Comerciales
-    Route::post('productos/upload-image', [ProductController::class, 'uploadImage']);
-    Route::apiResource('productos', ProductController::class);
-    Route::apiResource('inventario', InventoryController::class);
-    Route::apiResource('ventas', SaleController::class);
-    Route::apiResource('clientes-ventas', ClientVentaController::class);
-    Route::apiResource('marcas', MarcaController::class);
-    Route::apiResource('presentaciones', PresentacionController::class);
-    Route::get('/commercial/lookups', [CommercialLookupController::class, 'index']);
+    Route::post('productos/upload-image', [ProductController::class, 'uploadImage'])
+        ->middleware('permission:PRODUCTS_CREATE,PRODUCTS_EDIT');
+    Route::apiResource('productos', ProductController::class)
+        ->middleware('permission:PRODUCTS_VIEW,PRODUCTS_CREATE,PRODUCTS_EDIT,PRODUCTS_DELETE');
+    Route::apiResource('inventario', InventoryController::class)
+        ->middleware('permission:INVENTORY_VIEW,INVENTORY_IN,INVENTORY_OUT,INVENTORY_MANAGE');
+    Route::apiResource('ventas', SaleController::class)
+        ->middleware('permission:SALES_VIEW,SALES_CREATE');
+    Route::apiResource('clientes-ventas', ClientVentaController::class)
+        ->middleware('permission:SALES_CLIENTS_MANAGE,SALES_VIEW');
+    Route::apiResource('marcas', MarcaController::class)
+        ->middleware('permission:PRODUCTS_VIEW,PRODUCTS_EDIT');
+    Route::apiResource('presentaciones', PresentacionController::class)
+        ->middleware('permission:PRODUCTS_VIEW,PRODUCTS_EDIT');
+    Route::get('/commercial/lookups', [CommercialLookupController::class, 'index'])
+        ->middleware('permission:PRODUCTS_VIEW,SALES_VIEW,INVENTORY_VIEW');
 
     // Reportes Contables
-    Route::prefix('reports')->group(function () {
+    Route::prefix('reports')->middleware('permission:REPORTS_VIEW')->group(function () {
         Route::get('/inventario-disponible', [ReportController::class, 'inventarioDisponible']);
         Route::get('/movimientos-inventario', [ReportController::class, 'movimientosInventario']);
         Route::get('/catalogo-productos', [ReportController::class, 'catalogoProductos']);
@@ -186,50 +285,4 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/rotacion-inventario/pdf', [ReportExportController::class, 'rotacionPdf']);
         Route::get('/reporte-semestral/pdf', [ReportExportController::class, 'semestralPdf']);
     });
-
-    // ── Recurrente ─────────────────────────────────────────────────────────
-    Route::prefix('pagos')->group(function () {
-        Route::post('/checkout', [RecurrenteController::class, 'createCheckout']);
-        Route::post('/cobrar', [RecurrenteController::class, 'chargeCard']);
-        Route::get('/historial/{clientId}', [RecurrenteController::class, 'paymentHistory']);
-        Route::get('/estado/{clientId}', [RecurrenteController::class, 'clientPaymentStatus']);
-
-        // Pagos adelantados en efectivo/transferencia
-        Route::post('/adelanto', [PagoAdelantoController::class, 'registrarPagoAdelanto']);
-        Route::get('/adelanto/client/{clientId}', [PagoAdelantoController::class, 'estadoCuotas']);
-        Route::post('/adelanto/reactivar', [PagoAdelantoController::class, 'reactivarSuscripcion']);
-        // Fix 4.1 — Anulación de pago adelantado
-        Route::post('/adelanto/{logId}/revertir', [PagoAdelantoController::class, 'anularPagoAdelantado']);
-        // Fix 4.2 — Cálculo de reembolso
-        Route::get('/adelanto/{logId}/reembolso', [PagoAdelantoController::class, 'calcularReembolso']);
-        // Fix 4.3 — Cambio de plan con crédito de meses prepagados
-        Route::post('/adelanto/upgrade-plan', [PagoAdelantoController::class, 'cambiarPlan']);
-        // Fix 5.2 — Dashboard de alertas de conciliación
-        Route::get('/alertas', [PagoAdelantoController::class, 'listarAlertas']);
-        Route::patch('/alertas/{id}', [PagoAdelantoController::class, 'resolverAlerta']);
-    });
-
-    Route::prefix('suscripciones')->group(function () {
-        Route::post('/crear', [RecurrenteController::class, 'createSubscription']);
-        Route::delete('/{id}', [RecurrenteController::class, 'cancelSubscription']);
-    });
-
-    // ── Ciclo de vida avanzado de membresías ──────────────────────────────
-    Route::prefix('membresias')->group(function () {
-        // Dashboard de riesgo (Caso 1 — admin)
-        Route::get('/riesgo', [MembresiaLifecycleController::class, 'riesgo']);
-
-        // Caso 2 — Pausar
-        Route::post('/pausar', [MembresiaLifecycleController::class, 'pausar']);
-        Route::get('/pausar/impacto', [MembresiaLifecycleController::class, 'calcularImpacto']);
-        Route::post('/pausar/{id}/cancelar', [MembresiaLifecycleController::class, 'cancelarPausa']);
-
-        // Caso 4 — Volver a tarjeta tras efectivo
-        Route::post('/reactivar-tarjeta', [MembresiaLifecycleController::class, 'reactivarTarjeta']);
-
-        // Reactivación manual at_risk + toggle wants_renewal
-        Route::post('/{id}/reactivar', [MembresiaLifecycleController::class, 'reactivarManual']);
-        Route::put('/{id}/wants-renewal', [MembresiaLifecycleController::class, 'toggleWantsRenewal']);
-    });
 });
-

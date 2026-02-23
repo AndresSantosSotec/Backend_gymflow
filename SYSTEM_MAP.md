@@ -1,4 +1,4 @@
-# 🗺️ SYSTEM MAP — Gymflow
+# 🗺️ SYSTEM MAP — IronGym
 > Generado por análisis de código fuente  
 > Fecha: 2026-02-21  
 > Versión Backend: Laravel 12.50.0 | Versión Frontend: React 19 / Vite 7
@@ -574,7 +574,7 @@ PASO 6: Webhook confirma pago
 
 Estado actual: ✅ Funciona
 Casos edge cubiertos: Idempotencia, doble webhook, webhook antes de redirect
-Casos edge NO cubiertos: Cliente con email ya existente en Recurrente pero nuevo en Gymflow
+Casos edge NO cubiertos: Cliente con email ya existente en Recurrente pero nuevo en IronGym
 ```
 
 ---
@@ -995,7 +995,7 @@ Casos edge cubiertos: Stock lock, multi-pago, inventario actualizado
 ## APÉNDICE — Árbol de archivos clave
 
 ```
-Backend-Gymflow/
+Backend-IronGym/
 ├── app/
 │   ├── Console/Commands/
 │   │   ├── RecurrenteConciliacion.php       ← FIX 5.2 (nuevo)

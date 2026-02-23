@@ -350,10 +350,10 @@ class ReactivarSuscripcionesJob implements ShouldQueue
             if (! $client?->email) return;
 
             $subject = match($tipo) {
-                'advance_expiring' => '⚠️ Tu membresía cambia en 7 días — Gymflow',
-                'reactivated'      => '✅ Tu cobro automático se ha reactivado — Gymflow',
-                'pause_ended'      => '▶️ Tu membresía ha sido reactivada — Gymflow',
-                default            => 'Actualización de membresía — Gymflow',
+                'advance_expiring' => '⚠️ Tu membresía cambia en 7 días — IronGym',
+                'reactivated'      => '✅ Tu cobro automático se ha reactivado — IronGym',
+                'pause_ended'      => '▶️ Tu membresía ha sido reactivada — IronGym',
+                default            => 'Actualización de membresía — IronGym',
             };
 
             $html = match($tipo) {
@@ -408,7 +408,7 @@ class ReactivarSuscripcionesJob implements ShouldQueue
 
     private function enviarResumenAdmin(): void
     {
-        $adminEmail = config('mail.admin_email', 'admin@gymflow.com');
+        $adminEmail = config('mail.admin_email', 'admin@irongym.com');
 
         $resumen = "
             <h2>📊 Resumen diario de membresías — " . today()->format('d/m/Y') . "</h2>
@@ -431,7 +431,7 @@ class ReactivarSuscripcionesJob implements ShouldQueue
         try {
             Mail::send([], [], function ($m) use ($adminEmail, $resumen) {
                 $m->to($adminEmail)
-                  ->subject('📊 Gymflow — Resumen de membresías ' . today()->format('d/m/Y'))
+                  ->subject('📊 IronGym — Resumen de membresías ' . today()->format('d/m/Y'))
                   ->html($resumen);
             });
         } catch (\Throwable $e) {
@@ -445,7 +445,7 @@ class ReactivarSuscripcionesJob implements ShouldQueue
 
         // Intentar notificar al admin aunque el job haya muerto
         try {
-            $adminEmail = config('mail.admin_email', 'admin@gymflow.com');
+            $adminEmail = config('mail.admin_email', 'admin@irongym.com');
             Mail::send([], [], function ($m) use ($adminEmail, $exception) {
                 $m->to($adminEmail)
                   ->subject('🚨 CRÍTICO — ReactivarSuscripcionesJob falló ' . now()->format('d/m/Y H:i'))

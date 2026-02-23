@@ -13,7 +13,7 @@ Obtener token:
 curl -X POST http://localhost:3000/api/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@gymflow.local",
+    "email": "admin@irongym.local",
     "password": "password"
   }'
 ```
@@ -532,7 +532,7 @@ curl -X POST http://localhost:3000/api/receipts/RECEIPT_ID/send-email \
 ## 🧪 TESTING CON POSTMAN
 
 ### 1. Importar colección
-- Descargar [Gymflow_Receipts.postman_collection.json](./postman/Gymflow_Receipts.postman_collection.json)
+- Descargar [IronGym_Receipts.postman_collection.json](./postman/IronGym_Receipts.postman_collection.json)
 - Importar en Postman
 - Configurar variables de entorno
 
