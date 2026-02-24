@@ -116,6 +116,40 @@ class MonitorController extends Controller
         ]);
     }
 
+    /**
+     * DELETE /api/monitor/logs
+     *
+     * Vacía el archivo laravel.log (lo deja en 0 bytes). No elimina el archivo.
+     */
+    public function clearLogs(Request $request)
+    {
+        $path = $this->logPath();
+
+        if (! File::exists($path)) {
+            return response()->json([
+                'message' => 'No hay archivo de log.',
+                'cleared' => true,
+            ]);
+        }
+
+        try {
+            File::put($path, '');
+            Log::info('[Monitor] Log de Laravel limpiado manualmente por el usuario', [
+                'user_id' => $request->user()?->id,
+            ]);
+            return response()->json([
+                'message' => 'Log de Laravel limpiado correctamente.',
+                'cleared' => true,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('[Monitor] No se pudo limpiar el log: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'No se pudo limpiar el archivo de log.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     private function humanSize(int $bytes): string
     {
         $units = ['B', 'KB', 'MB', 'GB'];

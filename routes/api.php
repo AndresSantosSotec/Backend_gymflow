@@ -291,5 +291,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('monitor')->middleware('permission:MONITOR_VIEW')->group(function () {
         Route::get('/logs', [MonitorController::class, 'logs']);
         Route::get('/stats', [MonitorController::class, 'stats']);
+        Route::delete('/logs', [MonitorController::class, 'clearLogs']);
     });
 });

@@ -34,7 +34,7 @@ class RecurrenteService
         $this->baseUrl   = rtrim(config('services.recurrente.base_url') ?? '', '/');
         $this->publicKey = config('services.recurrente.public_key');
         $this->secretKey = config('services.recurrente.secret_key');
-        
+
         // Validate required config
         if (empty($this->baseUrl) || empty($this->publicKey) || empty($this->secretKey)) {
             Log::warning('[Recurrente] ⚠ Configuración incompleta. Revisa RECURRENTE_PUBLIC_KEY y RECURRENTE_SECRET_KEY en .env');
