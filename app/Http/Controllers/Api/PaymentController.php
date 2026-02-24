@@ -110,7 +110,7 @@ class PaymentController extends Controller
      */
     public function byClient(string $clientId)
     {
-        $payments = Payment::with('membership')
+        $payments = Payment::with(['membership', 'membership.plan'])
             ->where('client_id', $clientId)
             ->orderBy('created_at', 'desc')
             ->get();
