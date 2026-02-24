@@ -61,6 +61,7 @@ class StartSeeder extends Seeder
             // Planificados / Extras
             ['name' => 'Ver Reportes', 'slug' => 'REPORTS_VIEW', 'description' => 'Permite ver reportes y estadísticas avanzadas'],
             ['name' => 'Ver Notificaciones', 'slug' => 'NOTIFICATIONS_VIEW', 'description' => 'Permite ver notificaciones del sistema'],
+            ['name' => 'Ver Monitor / Logs', 'slug' => 'MONITOR_VIEW', 'description' => 'Solo admin: ver logs detallados del sistema para depuración'],
             // ['name' => 'Ver Cámaras', 'slug' => 'CAMERAS_VIEW', 'description' => 'Permite ver las cámaras de seguridad'], // ROADMAP FUTURO
 
             // Módulo Comercial

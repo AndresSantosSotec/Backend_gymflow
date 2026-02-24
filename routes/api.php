@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\MarcaController;
 use App\Http\Controllers\Api\PresentacionController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ReportExportController;
+use App\Http\Controllers\Api\MonitorController;
 use App\Http\Controllers\Api\PaymentInstallmentController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\FingerprintStatusController;
@@ -284,5 +285,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/valoracion-inventario/pdf', [ReportExportController::class, 'valoracionPdf']);
         Route::get('/rotacion-inventario/pdf', [ReportExportController::class, 'rotacionPdf']);
         Route::get('/reporte-semestral/pdf', [ReportExportController::class, 'semestralPdf']);
+    });
+
+    // Monitor / Logs del sistema — solo admin (MONITOR_VIEW)
+    Route::prefix('monitor')->middleware('permission:MONITOR_VIEW')->group(function () {
+        Route::get('/logs', [MonitorController::class, 'logs']);
+        Route::get('/stats', [MonitorController::class, 'stats']);
     });
 });
