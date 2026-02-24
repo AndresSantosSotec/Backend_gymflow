@@ -9,6 +9,7 @@ use App\Services\FingerprintService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 
 class ClientController extends Controller
@@ -165,10 +166,10 @@ class ClientController extends Controller
         $validated = $request->validate([
             'first_name' => 'sometimes|required|string|max:255',
             'last_name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|nullable|email|unique:clients,email,' . $id,
+            'email' => ['sometimes', 'nullable', 'email', Rule::unique('clients', 'email')->ignore($client->id)],
             'phone' => 'nullable|string|max:20',
             'phone_secondary' => 'nullable|string|max:20',
-            'dni' => 'nullable|string|unique:clients,dni,' . $id,
+            'dni' => ['nullable', 'string', Rule::unique('clients', 'dni')->ignore($client->id)],
             'nit' => 'nullable|string',
             'company_name' => 'nullable|string',
             'fiscal_address' => 'nullable|string',

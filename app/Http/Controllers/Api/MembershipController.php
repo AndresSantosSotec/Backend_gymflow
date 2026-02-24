@@ -68,7 +68,7 @@ class MembershipController extends Controller
         $endDate = $startDate->copy()->addDays($plan->duration_days);
 
         // Todo debe ejecutarse de forma atómica. Si algo falla (ej. base de datos), se deshace.
-        return DB::transaction(function () use ($validated, $client, $plan, $inscriptionFee, $paymentType, $numInstallments, $totalAmount, $startDate, $endDate, $request, $documentUrl) {
+        return DB::transaction(function () use ($validated, $client, $plan, $inscriptionFee, $paymentType, $numInstallments, $totalAmount, $startDate, $endDate, $request) {
             // 1. Asignar membresía al cliente (relación principal)
             $membership = Membership::create([
                 'client_id' => $client->id,

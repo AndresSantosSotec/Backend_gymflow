@@ -31,9 +31,9 @@ class RecurrenteService
 
     public function __construct()
     {
-        $this->baseUrl   = rtrim(config('services.recurrente.base_url'), '/');
-        $this->publicKey = config('services.recurrente.public_key');
-        $this->secretKey = config('services.recurrente.secret_key');
+        $this->baseUrl   = rtrim(config('services.recurrente.base_url') ?? '', '/');
+        $this->publicKey = config('services.recurrente.public_key') ?? '';
+        $this->secretKey = config('services.recurrente.secret_key') ?? '';
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -156,10 +156,17 @@ class RecurrenteService
     //  USUARIOS / CLIENTES
     // ─────────────────────────────────────────────────────────────
 
-    /** POST /api/users — Crear usuario en Recurrente */
+    /** POST /api/users — Crear usuario en Recurrente (API requiere full_name) */
     public function createUser(array $data): array
     {
-        return $this->request('POST', '/users', $data);
+        $payload = $data;
+        if (empty($payload['full_name'])) {
+            $payload['full_name'] = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
+        }
+        if ($payload['full_name'] === '') {
+            $payload['full_name'] = $data['email'] ?? 'Cliente';
+        }
+        return $this->request('POST', '/users', $payload);
     }
 
     /** GET /api/users/{id} */
