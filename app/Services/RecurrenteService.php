@@ -21,9 +21,9 @@ use Illuminate\Http\Client\RequestException;
  */
 class RecurrenteService
 {
-    protected string $baseUrl;
-    protected string $publicKey;
-    protected string $secretKey;
+    protected ?string $baseUrl;
+    protected ?string $publicKey;
+    protected ?string $secretKey;
 
     // FIX 1.4 — Configuración de reintentos
     private const MAX_RETRIES    = 3;
@@ -32,8 +32,13 @@ class RecurrenteService
     public function __construct()
     {
         $this->baseUrl   = rtrim(config('services.recurrente.base_url') ?? '', '/');
-        $this->publicKey = config('services.recurrente.public_key') ?? '';
-        $this->secretKey = config('services.recurrente.secret_key') ?? '';
+        $this->publicKey = config('services.recurrente.public_key');
+        $this->secretKey = config('services.recurrente.secret_key');
+        
+        // Validate required config
+        if (empty($this->baseUrl) || empty($this->publicKey) || empty($this->secretKey)) {
+            Log::warning('[Recurrente] ⚠ Configuración incompleta. Revisa RECURRENTE_PUBLIC_KEY y RECURRENTE_SECRET_KEY en .env');
+        }
     }
 
     // ─────────────────────────────────────────────────────────────

@@ -92,10 +92,10 @@ class ClientController extends Controller
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'nullable|email',
+            'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'phone_secondary' => 'nullable|string|max:20',
-            'dni' => 'nullable|string',
+            'dni' => 'nullable|string|max:255',
             'nit' => 'nullable|string',
             'company_name' => 'nullable|string',
             'fiscal_address' => 'nullable|string',
