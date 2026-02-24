@@ -129,14 +129,27 @@ class ReceiptController extends Controller
     }
 
     /**
-     * Delete the specified receipt
+     * Delete the specified receipt (soft delete).
+     * Solo administradores (ROLES_MANAGE) pueden borrar recibos/facturas.
+     * Returns 200 even if already deleted to avoid 404 on double-submit.
      */
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
-        $receipt = Receipt::findOrFail($id);
-        $receipt->delete();
+        if (! $request->user()?->hasPermission('ROLES_MANAGE')) {
+            return response()->json(['message' => 'No tienes permiso para eliminar recibos o facturas.'], 403);
+        }
 
-        return response()->json(['message' => 'Receipt deleted successfully']);
+        $receipt = Receipt::withTrashed()->find($id);
+
+        if (! $receipt) {
+            return response()->json(['message' => 'Recibo no encontrado.'], 404);
+        }
+
+        if (! $receipt->trashed()) {
+            $receipt->delete();
+        }
+
+        return response()->json(['message' => 'Recibo eliminado correctamente.']);
     }
 
     /**

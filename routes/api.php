@@ -224,6 +224,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}/preview/invoice', [ReceiptController::class, 'previewInvoice']);
         Route::get('/{id}/preview/ticket', [ReceiptController::class, 'previewTicket']);
 
+        // DELETE explícito para evitar 404 (apiResource a veces no registra bien destroy con prefix vacío)
+        Route::delete('/{id}', [ReceiptController::class, 'destroy']);
+
         // Resource routes LAST (for /{id} pattern matching)
         Route::apiResource('', ReceiptController::class, ['as' => 'receipts']);
     });
