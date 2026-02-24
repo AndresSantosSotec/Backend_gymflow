@@ -58,7 +58,7 @@ class PaymentController extends Controller
         try {
             Receipt::createFromPaymentAuto($payment, 'individual_payment');
         } catch (\Exception $e) {
-            \Log::warning('Auto-receipt generation failed for payment #' . $payment->id . ': ' . $e->getMessage());
+            //\Log::warning('Auto-receipt generation failed for payment #' . $payment->id . ': ' . $e->getMessage());
         }
 
         return response()->json($payment->load(['client', 'membership']), 201);
