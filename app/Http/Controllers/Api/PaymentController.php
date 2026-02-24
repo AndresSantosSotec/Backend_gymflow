@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Receipt;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
 {
@@ -95,14 +96,26 @@ class PaymentController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Eliminar un pago y los recibos/facturas asociados.
+     * Solo administradores (ROLES_MANAGE) pueden borrar pagos.
      */
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
-        $payment = Payment::findOrFail($id);
-        $payment->delete();
+        if (! $request->user()?->hasPermission('ROLES_MANAGE')) {
+            return response()->json(['message' => 'No tienes permiso para eliminar pagos.'], 403);
+        }
 
-        return response()->json(['message' => 'Payment deleted successfully']);
+        $payment = Payment::findOrFail($id);
+
+        DB::transaction(function () use ($payment) {
+            // Borrar (soft delete) todos los recibos/facturas vinculados a este pago
+            Receipt::where('payment_id', $payment->id)->delete();
+            $payment->delete();
+        });
+
+        return response()->json([
+            'message' => 'Pago y recibos/facturas asociados eliminados correctamente.',
+        ]);
     }
 
     /**
