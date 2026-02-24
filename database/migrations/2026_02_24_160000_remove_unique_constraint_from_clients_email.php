@@ -9,13 +9,16 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
-     * Removes unique constraint from email to allow duplicate client emails
+     * Removes unique constraints from email and dni to allow duplicate values
+     * Fingerprint ID remains unique since each fingerprint should belong to one person
      */
     public function up(): void
     {
         Schema::table('clients', function (Blueprint $table) {
-            // Drop the unique constraint on email
+            // Drop unique constraints that can cause duplicate entry errors
             $table->dropUnique('clients_email_unique');
+            $table->dropUnique('clients_dni_unique');
+            // fingerprint_id keeps its unique constraint - one fingerprint per person
         });
     }
 
@@ -24,9 +27,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        // Note: This will fail if there are duplicate values in the database
         Schema::table('clients', function (Blueprint $table) {
-            // Restore the unique constraint on email
-            $table->string('email')->unique()->change();
+            $table->unique('email');
+            $table->unique('dni');
         });
     }
 };
