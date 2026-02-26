@@ -54,6 +54,7 @@ class Client extends Model
         'has_fingerprint',
         'has_active_membership',
         'membership_end_date',
+        'photo_full_url',
     ];
 
     // ─── Computed Attributes ───
@@ -83,6 +84,18 @@ class Client extends Model
     {
         $membership = $this->activeMembership();
         return $membership ? $membership->end_date->toDateString() : null;
+    }
+
+    /**
+     * URL absoluta de la foto para que el frontend no dependa del host.
+     * Usa la URL del backend (APP_URL) para servir /storage/...
+     */
+    public function getPhotoFullUrlAttribute(): ?string
+    {
+        if (empty($this->photo_url)) {
+            return null;
+        }
+        return \Illuminate\Support\Facades\Storage::disk('public')->url($this->photo_url);
     }
 
     // ─── Relationships ───
