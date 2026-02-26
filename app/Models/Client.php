@@ -54,7 +54,7 @@ class Client extends Model
         'has_fingerprint',
         'has_active_membership',
         'membership_end_date',
-        'photo_full_url',
+        'photo_public_path',
     ];
 
     // ─── Computed Attributes ───
@@ -87,15 +87,15 @@ class Client extends Model
     }
 
     /**
-     * URL absoluta de la foto para que el frontend no dependa del host.
-     * Usa la URL del backend (APP_URL) para servir /storage/...
+     * Ruta pública de la foto sin host: /storage/clients/photos/xxx.jpg
+     * El frontend construye la URL con window.location.origin para mismo origen (sin Mixed Content).
      */
-    public function getPhotoFullUrlAttribute(): ?string
+    public function getPhotoPublicPathAttribute(): ?string
     {
         if (empty($this->photo_url)) {
             return null;
         }
-        return \Illuminate\Support\Facades\Storage::disk('public')->url($this->photo_url);
+        return '/storage/' . ltrim($this->photo_url, '/');
     }
 
     // ─── Relationships ───
