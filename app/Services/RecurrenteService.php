@@ -226,7 +226,37 @@ class RecurrenteService
     {
         return $this->request('DELETE', "/products/{$productId}");
     }
-
+    /**
+     * POST /api/products — Crear producto de PAGO ÚNICO (one_time) en Recurrente.
+     *
+     * Usado para inscripciones, matrículas, evaluaciones físicas, etc.
+     *
+     * Payload esperado:
+     * {
+     *   "product": {
+     *     "name": "Inscripción Anual",
+     *     "description": "Pago único de inscripción",
+     *     "image_url": "https://...",
+     *     "prices_attributes": [{
+     *       "currency": "GTQ",
+     *       "charge_type": "one_time",
+     *       "amount_in_cents": 20000
+     *     }],
+     *     "success_url": "...",
+     *     "cancel_url": "...",
+     *     "phone_requirement": "none",
+     *     "address_requirement": "none",
+     *     "billing_info_requirement": "none"
+     *   }
+     * }
+     *
+     * @param array $data Payload del producto
+     * @return array Respuesta de Recurrente con { id, prices: [...] }
+     */
+    public function createOneTimeProduct(array $data): array
+    {
+        return $this->request('POST', '/products', $data);
+    }
     // ─────────────────────────────────────────────────────────────
     //  CHECKOUTS (pago hosteado)
     // ─────────────────────────────────────────────────────────────

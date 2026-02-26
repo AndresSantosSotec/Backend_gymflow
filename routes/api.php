@@ -33,6 +33,8 @@ use App\Http\Controllers\Api\MembresiaLifecycleController;
 use App\Http\Controllers\Api\PagoAdelantoController;
 use App\Http\Controllers\RecurrenteWebhookController;
 use App\Http\Controllers\Api\ReceiptController as ApiReceiptController;
+use App\Http\Controllers\Api\RegistrationProductController;
+use App\Http\Controllers\Api\RecurrenteProductoController;
 use App\Services\ReceiptPdfService;
 use App\Models\Receipt;
 use App\Models\Payment;
@@ -82,6 +84,9 @@ Route::post('/webhooks/recurrente', [RecurrenteWebhookController::class, 'handle
 // Checkout público (auto-registro + pago — sin autenticación)
 Route::post('/public/checkout', [RecurrenteController::class, 'publicCheckout']);
 
+// Productos de Inscripción públicos (sin autenticación)
+Route::get('/public/registration-products', [RegistrationProductController::class, 'publicProducts']);
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     // Auth routes
@@ -127,14 +132,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/membership-plans/{id}/recurrente-status', [MembershipPlanController::class, 'recurrenteStatus'])
         ->middleware('permission:PLANS_VIEW,PLANS_MANAGE');
 
-    // ── Recurrente: Checkout, Cobros, Suscripciones ──────────────────
+    // ── Recurrente: Checkout, Cobros, Suscripciones, Productos de pago ──────────────────
     Route::prefix('recurrente')->middleware('permission:PAYMENTS_VIEW,PAYMENTS_MANAGE')->group(function () {
         Route::post('/checkout', [RecurrenteController::class, 'createCheckout']);
+        Route::post('/checkout-productos', [RecurrenteController::class, 'createCheckoutWithProductos']);
         Route::post('/charge-card', [RecurrenteController::class, 'chargeCard']);
         Route::post('/subscriptions', [RecurrenteController::class, 'createSubscription']);
         Route::delete('/subscriptions/{id}', [RecurrenteController::class, 'cancelSubscription']);
         Route::get('/payments/history/{clientId}', [RecurrenteController::class, 'paymentHistory']);
         Route::get('/payments/status/{clientId}', [RecurrenteController::class, 'clientPaymentStatus']);
+        // Productos de pago único (inscripción, mensualidad, curso)
+        Route::get('/productos', [RecurrenteProductoController::class, 'index']);
+        Route::post('/productos', [RecurrenteProductoController::class, 'store']);
+        Route::delete('/productos/{id}', [RecurrenteProductoController::class, 'destroy']);
     });
 
     // Access verification (CRÍTICO - Core business logic)
@@ -295,5 +305,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/logs', [MonitorController::class, 'logs']);
         Route::get('/stats', [MonitorController::class, 'stats']);
         Route::delete('/logs', [MonitorController::class, 'clearLogs']);
+    });
+
+    // ── Productos de Inscripción (Pagos Únicos) ──────────────────────
+    Route::prefix('registration-products')->middleware('permission:PRODUCTS_VIEW,PRODUCTS_CREATE,PRODUCTS_EDIT,PRODUCTS_DELETE')->group(function () {
+        // CRUD básico
+        Route::get('/', [RegistrationProductController::class, 'index']);
+        Route::get('/{id}', [RegistrationProductController::class, 'show']);
+        Route::post('/', [RegistrationProductController::class, 'store']);
+        Route::patch('/{id}', [RegistrationProductController::class, 'update']);
+        Route::delete('/{id}', [RegistrationProductController::class, 'destroy']);
+
+        // Generar link de pago para una inscripción
+        Route::post('/{id}/checkout', [RegistrationProductController::class, 'createCheckout']);
     });
 });

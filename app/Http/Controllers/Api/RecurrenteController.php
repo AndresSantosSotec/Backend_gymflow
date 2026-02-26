@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\MembershipPlan;
 use App\Models\RecurrentePayment;
+use App\Models\RecurrenteProducto;
 use App\Models\RecurrenteSubscription;
+use App\Models\RegistrationProduct;
 use App\Services\RecurrenteService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -110,6 +112,89 @@ class RecurrenteController extends Controller
             'checkout_url' => $checkoutUrl,
             'checkout_id'  => $checkout['id'] ?? null,
             '_debug_keys'  => array_keys($checkout), // Remove after debugging
+        ]);
+    }
+
+    /**
+     * Crear checkout con plan (opcional) + productos de pago único.
+     * Acepta producto_ids (recurrente_productos) y/o registration_product_ids (módulo Inscripción).
+     *
+     * Request:  { client_id, plan_id?, producto_ids[], registration_product_ids[], success_url?, cancel_url? }
+     * Response: { checkout_url, checkout_id }
+     */
+    public function createCheckoutWithProductos(Request $request)
+    {
+        $data = $request->validate([
+            'client_id'    => 'required|exists:clients,id',
+            'plan_id'      => 'nullable|exists:membership_plans,id',
+            'producto_ids' => 'nullable|array',
+            'producto_ids.*' => 'integer|exists:recurrente_productos,id',
+            'registration_product_ids' => 'nullable|array',
+            'registration_product_ids.*' => 'integer|exists:registration_products,id',
+            'success_url'  => 'nullable|url',
+            'cancel_url'   => 'nullable|url',
+        ]);
+
+        $client = Client::findOrFail($data['client_id']);
+        $productoIds = $data['producto_ids'] ?? [];
+        $registrationProductIds = $data['registration_product_ids'] ?? [];
+        $plan = isset($data['plan_id']) ? MembershipPlan::find($data['plan_id']) : null;
+
+        $items = [];
+
+        if ($plan && $plan->recurrente_product_id) {
+            $items[] = ['product_id' => $plan->recurrente_product_id, 'quantity' => 1];
+        }
+
+        $productos = RecurrenteProducto::whereIn('id', $productoIds)->activos()->get();
+        foreach ($productos as $p) {
+            if ($p->recurrente_product_id) {
+                $items[] = ['product_id' => $p->recurrente_product_id, 'quantity' => 1];
+            }
+        }
+
+        $registrationProductos = RegistrationProduct::whereIn('id', $registrationProductIds)
+            ->whereNotNull('recurrente_product_id')
+            ->get();
+        foreach ($registrationProductos as $rp) {
+            $items[] = ['product_id' => $rp->recurrente_product_id, 'quantity' => 1];
+        }
+
+        if (empty($items)) {
+            return response()->json([
+                'error' => 'Debes incluir al menos un plan con recurrente_product_id o productos de pago válidos.',
+            ], 422);
+        }
+
+        if (! $client->recurrente_user_id) {
+            $userRes = $this->recurrente->createUser([
+                'first_name' => $client->first_name ?: 'Cliente',
+                'last_name'  => $client->last_name ?: '-',
+                'email'      => $client->email ?? "client{$client->id}@irongym.local",
+                'phone'      => $client->phone ?? null,
+            ]);
+            $client->update(['recurrente_user_id' => $userRes['id']]);
+        }
+
+        $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+        $successUrl  = $data['success_url'] ?? "{$frontendUrl}/p/pago-exitoso?client_id={$client->id}";
+        $cancelUrl   = $data['cancel_url']  ?? "{$frontendUrl}/p/pago-cancelado";
+
+        $checkout = $this->recurrente->createCheckout([
+            'user_id'     => $client->recurrente_user_id,
+            'items'       => $items,
+            'success_url' => $successUrl,
+            'cancel_url'  => $cancelUrl,
+        ]);
+
+        $checkoutUrl = $checkout['checkout_url']
+            ?? $checkout['url']
+            ?? $checkout['storefront_link']
+            ?? null;
+
+        return response()->json([
+            'checkout_url' => $checkoutUrl,
+            'checkout_id'  => $checkout['id'] ?? null,
         ]);
     }
 
