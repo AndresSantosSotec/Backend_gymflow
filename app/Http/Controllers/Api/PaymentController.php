@@ -35,7 +35,7 @@ class PaymentController extends Controller
             $query->where('payment_method', $request->method);
         }
 
-        // Filtro por día: date=YYYY-MM-DD (pagos de ese día por paid_at o created_at)
+        // Filtro por día: date=YYYY-MM-DD (solo ese día; comparación por fecha para evitar fugas por hora/zona)
         if ($request->filled('date')) {
             $query->where(function ($q) use ($request) {
                 $q->whereDate('paid_at', $request->date)
@@ -44,20 +44,22 @@ class PaymentController extends Controller
                     });
             });
         }
-        // Rango: date_from / date_to
+        // Rango: date_from / date_to (usar whereDate para no colar registros de otros días por hora/zona)
         if ($request->filled('date_from')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('paid_at', '>=', $request->date_from . ' 00:00:00')
-                    ->orWhere(function ($q2) use ($request) {
-                        $q2->whereNull('paid_at')->where('created_at', '>=', $request->date_from . ' 00:00:00');
+            $from = $request->date_from;
+            $query->where(function ($q) use ($from) {
+                $q->whereDate('paid_at', '>=', $from)
+                    ->orWhere(function ($q2) use ($from) {
+                        $q2->whereNull('paid_at')->whereDate('created_at', '>=', $from);
                     });
             });
         }
         if ($request->filled('date_to')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('paid_at', '<=', $request->date_to . ' 23:59:59')
-                    ->orWhere(function ($q2) use ($request) {
-                        $q2->whereNull('paid_at')->where('created_at', '<=', $request->date_to . ' 23:59:59');
+            $to = $request->date_to;
+            $query->where(function ($q) use ($to) {
+                $q->whereDate('paid_at', '<=', $to)
+                    ->orWhere(function ($q2) use ($to) {
+                        $q2->whereNull('paid_at')->whereDate('created_at', '<=', $to);
                     });
             });
         }
