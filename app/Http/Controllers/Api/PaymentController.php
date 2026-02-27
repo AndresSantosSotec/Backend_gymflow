@@ -29,6 +29,33 @@ class PaymentController extends Controller
             $query->where('payment_method', $request->method);
         }
 
+        // Filtro por día: date=YYYY-MM-DD (pagos de ese día por paid_at o created_at)
+        if ($request->filled('date')) {
+            $query->where(function ($q) use ($request) {
+                $q->whereDate('paid_at', $request->date)
+                    ->orWhere(function ($q2) use ($request) {
+                        $q2->whereNull('paid_at')->whereDate('created_at', $request->date);
+                    });
+            });
+        }
+        // Rango: date_from / date_to
+        if ($request->filled('date_from')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('paid_at', '>=', $request->date_from . ' 00:00:00')
+                    ->orWhere(function ($q2) use ($request) {
+                        $q2->whereNull('paid_at')->where('created_at', '>=', $request->date_from . ' 00:00:00');
+                    });
+            });
+        }
+        if ($request->filled('date_to')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('paid_at', '<=', $request->date_to . ' 23:59:59')
+                    ->orWhere(function ($q2) use ($request) {
+                        $q2->whereNull('paid_at')->where('created_at', '<=', $request->date_to . ' 23:59:59');
+                    });
+            });
+        }
+
         $payments = $query->orderBy('created_at', 'desc')->paginate($request->per_page ?? 15);
 
         return response()->json($payments);
@@ -132,24 +159,33 @@ class PaymentController extends Controller
     }
 
     /**
-     * Get total revenue
+     * Get total revenue (optional from/to; filtra por paid_at o created_at).
      */
     public function revenue(Request $request)
     {
         $query = Payment::where('status', 'completed');
 
-        if ($request->has('from')) {
-            $query->where('created_at', '>=', $request->from);
+        if ($request->filled('from')) {
+            $from = $request->from . (strlen((string) $request->from) <= 10 ? ' 00:00:00' : '');
+            $query->where(function ($q) use ($from) {
+                $q->where('paid_at', '>=', $from)
+                    ->orWhere(function ($q2) use ($from) {
+                        $q2->whereNull('paid_at')->where('created_at', '>=', $from);
+                    });
+            });
         }
-
-        if ($request->has('to')) {
-            $query->where('created_at', '<=', $request->to);
+        if ($request->filled('to')) {
+            $to = $request->to . (strlen((string) $request->to) <= 10 ? ' 23:59:59' : '');
+            $query->where(function ($q) use ($to) {
+                $q->where('paid_at', '<=', $to)
+                    ->orWhere(function ($q2) use ($to) {
+                        $q2->whereNull('paid_at')->where('created_at', '<=', $to);
+                    });
+            });
         }
-
-        $total = $query->sum('amount');
 
         return response()->json([
-            'total_revenue' => $total,
+            'total_revenue' => round((float) $query->sum('amount'), 2),
             'count' => $query->count(),
         ]);
     }
