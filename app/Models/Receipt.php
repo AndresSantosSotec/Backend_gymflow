@@ -71,23 +71,28 @@ class Receipt extends Model
     }
 
     /**
-     * Generar número de recibo automático
+     * Generar número de recibo automático (único, incluye borrados y evita carreras).
      */
     public static function generateReceiptNumber()
     {
-        $prefix = 'REC-' . date('Y');
-        $lastReceipt = self::where('receipt_number', 'like', $prefix . '%')
-            ->orderBy('id', 'desc')
-            ->first();
+        $prefix = 'REC-' . date('Y') . '-';
 
-        if ($lastReceipt) {
-            $lastNumber = (int) substr($lastReceipt->receipt_number, -6);
-            $newNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
-        } else {
-            $newNumber = '000001';
-        }
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($prefix) {
+            // Incluir soft-deleted para no reutilizar números; lock para evitar duplicados por concurrencia
+            $lastReceipt = self::withTrashed()
+                ->where('receipt_number', 'like', $prefix . '%')
+                ->orderByRaw('CAST(SUBSTRING(receipt_number, LOCATE(\'-\', receipt_number, 5) + 1) AS UNSIGNED) DESC')
+                ->lockForUpdate()
+                ->first();
 
-        return $prefix . '-' . $newNumber;
+            if ($lastReceipt && preg_match('/-(\d+)$/', $lastReceipt->receipt_number, $m)) {
+                $newNumber = str_pad((int) $m[1] + 1, 6, '0', STR_PAD_LEFT);
+            } else {
+                $newNumber = '000001';
+            }
+
+            return $prefix . $newNumber;
+        });
     }
 
     /**

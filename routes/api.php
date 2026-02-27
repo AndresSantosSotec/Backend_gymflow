@@ -195,6 +195,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Payments special routes
     Route::get('/payments/client/{clientId}', [PaymentController::class, 'byClient'])
         ->middleware('permission:PAYMENTS_VIEW');
+    Route::get('/payments/revenue', [PaymentController::class, 'revenue'])
+        ->middleware('permission:PAYMENTS_VIEW');
     Route::get('/payments/revenue/stats', [PaymentController::class, 'revenue'])
         ->middleware('permission:PAYMENTS_VIEW');
     Route::patch('/payments/{id}/status', [PaymentController::class, 'updateStatus'])
