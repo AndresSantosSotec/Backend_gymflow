@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Receipt;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -35,31 +36,34 @@ class PaymentController extends Controller
             $query->where('payment_method', $request->method);
         }
 
-        // Filtro por día: date=YYYY-MM-DD (solo ese día; comparación por fecha para evitar fugas por hora/zona)
+        // Filtro por día: date=YYYY-MM-DD — día en zona Guatemala para que coincida con lo que muestra el frontend (es-GT)
+        $tz = 'America/Guatemala';
         if ($request->filled('date')) {
-            $query->where(function ($q) use ($request) {
-                $q->whereDate('paid_at', $request->date)
-                    ->orWhere(function ($q2) use ($request) {
-                        $q2->whereNull('paid_at')->whereDate('created_at', $request->date);
+            $dayStart = Carbon::parse($request->date, $tz)->startOfDay()->utc();
+            $dayEnd = Carbon::parse($request->date, $tz)->endOfDay()->utc();
+            $query->where(function ($q) use ($dayStart, $dayEnd) {
+                $q->whereBetween('paid_at', [$dayStart, $dayEnd])
+                    ->orWhere(function ($q2) use ($dayStart, $dayEnd) {
+                        $q2->whereNull('paid_at')->whereBetween('created_at', [$dayStart, $dayEnd]);
                     });
             });
         }
-        // Rango: date_from / date_to (usar whereDate para no colar registros de otros días por hora/zona)
+        // Rango: date_from / date_to (misma zona para consistencia)
         if ($request->filled('date_from')) {
-            $from = $request->date_from;
-            $query->where(function ($q) use ($from) {
-                $q->whereDate('paid_at', '>=', $from)
-                    ->orWhere(function ($q2) use ($from) {
-                        $q2->whereNull('paid_at')->whereDate('created_at', '>=', $from);
+            $fromStart = Carbon::parse($request->date_from, $tz)->startOfDay()->utc();
+            $query->where(function ($q) use ($fromStart) {
+                $q->where('paid_at', '>=', $fromStart)
+                    ->orWhere(function ($q2) use ($fromStart) {
+                        $q2->whereNull('paid_at')->where('created_at', '>=', $fromStart);
                     });
             });
         }
         if ($request->filled('date_to')) {
-            $to = $request->date_to;
-            $query->where(function ($q) use ($to) {
-                $q->whereDate('paid_at', '<=', $to)
-                    ->orWhere(function ($q2) use ($to) {
-                        $q2->whereNull('paid_at')->whereDate('created_at', '<=', $to);
+            $toEnd = Carbon::parse($request->date_to, $tz)->endOfDay()->utc();
+            $query->where(function ($q) use ($toEnd) {
+                $q->where('paid_at', '<=', $toEnd)
+                    ->orWhere(function ($q2) use ($toEnd) {
+                        $q2->whereNull('paid_at')->where('created_at', '<=', $toEnd);
                     });
             });
         }
