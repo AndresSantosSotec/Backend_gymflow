@@ -203,34 +203,51 @@ class PaymentController extends Controller
     }
 
     /**
-     * Corte de caja: pagos en un rango de fechas con totales por método y total general (JSON).
+     * Query de pagos para corte de caja: mismos criterios que el listado (fecha Guatemala + método opcional).
      */
-    public function corteCaja(Request $request)
+    private function queryPaymentsForCorteCaja(Request $request): \Illuminate\Database\Eloquent\Builder
     {
         $from = $request->input('from', now()->format('Y-m-d'));
         $to = $request->input('to', $from);
-        $from = strlen((string) $from) <= 10 ? $from . ' 00:00:00' : $from;
-        $to = strlen((string) $to) <= 10 ? $to . ' 23:59:59' : $to;
+        $tz = 'America/Guatemala';
+        $fromStart = Carbon::parse($from, $tz)->startOfDay()->utc();
+        $toEnd = Carbon::parse($to, $tz)->endOfDay()->utc();
 
         $query = Payment::with(['client'])
             ->where('status', 'completed')
-            ->where(function ($q) use ($from, $to) {
-                $q->whereBetween('paid_at', [$from, $to])
-                    ->orWhere(function ($q2) use ($from, $to) {
+            ->where(function ($q) use ($fromStart, $toEnd) {
+                $q->whereBetween('paid_at', [$fromStart, $toEnd])
+                    ->orWhere(function ($q2) use ($fromStart, $toEnd) {
                         $q2->whereNull('paid_at')
-                            ->whereBetween('created_at', [$from, $to]);
+                            ->whereBetween('created_at', [$fromStart, $toEnd]);
                     });
             })
             ->orderBy('paid_at')
             ->orderBy('id');
 
-        $payments = $query->get();
+        if ($request->filled('method')) {
+            $query->where('payment_method', $request->method);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Corte de caja: pagos en un rango de fechas con totales por método y total general (JSON).
+     * Usa los mismos filtros que el listado (fecha en Guatemala + método opcional).
+     */
+    public function corteCaja(Request $request)
+    {
+        $payments = $this->queryPaymentsForCorteCaja($request)->get();
         $totalRevenue = round((float) $payments->sum('amount'), 2);
         $byMethod = $payments->groupBy('payment_method')->map(fn ($group) => round((float) $group->sum('amount'), 2))->all();
 
+        $from = $request->input('from', now()->format('Y-m-d'));
+        $to = $request->input('to', $from);
+
         return response()->json([
-            'from' => substr($from, 0, 10),
-            'to' => substr($to, 0, 10),
+            'from' => substr((string) $from, 0, 10),
+            'to' => substr((string) $to, 0, 10),
             'payments' => $payments,
             'total_revenue' => $totalRevenue,
             'count' => $payments->count(),
@@ -240,29 +257,16 @@ class PaymentController extends Controller
 
     /**
      * Descargar reporte de corte de caja en PDF.
+     * Mismos filtros que el listado (fecha Guatemala + método opcional).
      */
     public function corteCajaPdf(Request $request)
     {
-        $from = $request->input('from', now()->format('Y-m-d'));
-        $to = $request->input('to', $from);
-        $fromStr = strlen((string) $from) <= 10 ? $from . ' 00:00:00' : $from;
-        $toStr = strlen((string) $to) <= 10 ? $to . ' 23:59:59' : $to;
-
-        $payments = Payment::with(['client'])
-            ->where('status', 'completed')
-            ->where(function ($q) use ($fromStr, $toStr) {
-                $q->whereBetween('paid_at', [$fromStr, $toStr])
-                    ->orWhere(function ($q2) use ($fromStr, $toStr) {
-                        $q2->whereNull('paid_at')
-                            ->whereBetween('created_at', [$fromStr, $toStr]);
-                    });
-            })
-            ->orderBy('paid_at')
-            ->orderBy('id')
-            ->get();
-
+        $payments = $this->queryPaymentsForCorteCaja($request)->get();
         $totalRevenue = round((float) $payments->sum('amount'), 2);
         $byMethod = $payments->groupBy('payment_method')->map(fn ($group) => round((float) $group->sum('amount'), 2))->all();
+
+        $from = $request->input('from', now()->format('Y-m-d'));
+        $to = $request->input('to', $from);
 
         $companyName = config('app.name', 'IronGym');
         $companyAddress = config('site.company_address', 'Guatemala, Guatemala');
@@ -290,29 +294,16 @@ class PaymentController extends Controller
 
     /**
      * Descargar reporte de corte de caja en Excel.
+     * Mismos filtros que el listado (fecha Guatemala + método opcional).
      */
     public function corteCajaExcel(Request $request)
     {
-        $from = $request->input('from', now()->format('Y-m-d'));
-        $to = $request->input('to', $from);
-        $fromStr = strlen((string) $from) <= 10 ? $from . ' 00:00:00' : $from;
-        $toStr = strlen((string) $to) <= 10 ? $to . ' 23:59:59' : $to;
-
-        $payments = Payment::with(['client'])
-            ->where('status', 'completed')
-            ->where(function ($q) use ($fromStr, $toStr) {
-                $q->whereBetween('paid_at', [$fromStr, $toStr])
-                    ->orWhere(function ($q2) use ($fromStr, $toStr) {
-                        $q2->whereNull('paid_at')
-                            ->whereBetween('created_at', [$fromStr, $toStr]);
-                    });
-            })
-            ->orderBy('paid_at')
-            ->orderBy('id')
-            ->get();
-
+        $payments = $this->queryPaymentsForCorteCaja($request)->get();
         $totalRevenue = round((float) $payments->sum('amount'), 2);
         $byMethod = $payments->groupBy('payment_method')->map(fn ($group) => round((float) $group->sum('amount'), 2))->all();
+
+        $from = $request->input('from', now()->format('Y-m-d'));
+        $to = $request->input('to', $from);
 
         $methodLabels = [
             'cash' => 'Efectivo',

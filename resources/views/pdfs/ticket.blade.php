@@ -2,19 +2,29 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=320">
     <title>Ticket {{ $receipt->receipt_number }}</title>
     <style>
         @page {
-            width: 80mm;
-            margin: 2mm;
+            size: 80mm auto;
+            margin: 3mm;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Courier New', 'DejaVu Sans Mono', monospace;
-            font-size: 10px;
+            font-size: 13px;
             width: 76mm;
+            min-width: 76mm;
+            max-width: 76mm;
             color: #000;
-            line-height: 1.3;
+            line-height: 1.35;
+        }
+        @media print {
+            body { font-size: 13px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .company-name { font-size: 18px !important; }
+            .total-line td { font-size: 16px !important; }
+            .small { font-size: 11px !important; }
+            .line-item td { font-size: 13px !important; }
         }
         .center { text-align: center; }
         .right { text-align: right; }
@@ -22,43 +32,43 @@
         .separator {
             text-align: center;
             letter-spacing: 2px;
-            margin: 4px 0;
-            font-size: 10px;
+            margin: 5px 0;
+            font-size: 12px;
         }
         .double-sep {
             border-top: 2px solid #000;
             border-bottom: 2px solid #000;
-            padding: 2px 0;
-            margin: 4px 0;
+            padding: 3px 0;
+            margin: 5px 0;
         }
         .company-name {
-            font-size: 14px;
+            font-size: 18px;
             font-weight: bold;
             text-align: center;
-            margin-bottom: 2px;
+            margin-bottom: 3px;
         }
         .line-item {
             width: 100%;
         }
         .line-item td {
-            padding: 1px 0;
-            font-size: 10px;
+            padding: 2px 0;
+            font-size: 13px;
             vertical-align: top;
         }
         .line-item .desc { text-align: left; }
         .line-item .amt { text-align: right; white-space: nowrap; }
         .total-line td {
-            padding: 3px 0;
-            font-size: 13px;
+            padding: 4px 0;
+            font-size: 16px;
             font-weight: bold;
         }
         .footer-msg {
             text-align: center;
-            font-size: 9px;
-            margin-top: 6px;
-            padding-top: 4px;
+            font-size: 11px;
+            margin-top: 8px;
+            padding-top: 5px;
         }
-        .small { font-size: 8px; }
+        .small { font-size: 11px; }
     </style>
 </head>
 <body>
