@@ -8,6 +8,11 @@ use App\Models\Receipt;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class PaymentController extends Controller
 {
@@ -275,6 +280,132 @@ class PaymentController extends Controller
         $filename = 'corte-caja-' . substr($from, 0, 10) . (substr($from, 0, 10) !== substr($to, 0, 10) ? '_a_' . substr($to, 0, 10) : '') . '.pdf';
 
         return $pdf->download($filename);
+    }
+
+    /**
+     * Descargar reporte de corte de caja en Excel.
+     */
+    public function corteCajaExcel(Request $request)
+    {
+        $from = $request->input('from', now()->format('Y-m-d'));
+        $to = $request->input('to', $from);
+        $fromStr = strlen((string) $from) <= 10 ? $from . ' 00:00:00' : $from;
+        $toStr = strlen((string) $to) <= 10 ? $to . ' 23:59:59' : $to;
+
+        $payments = Payment::with(['client'])
+            ->where('status', 'completed')
+            ->where(function ($q) use ($fromStr, $toStr) {
+                $q->whereBetween('paid_at', [$fromStr, $toStr])
+                    ->orWhere(function ($q2) use ($fromStr, $toStr) {
+                        $q2->whereNull('paid_at')
+                            ->whereBetween('created_at', [$fromStr, $toStr]);
+                    });
+            })
+            ->orderBy('paid_at')
+            ->orderBy('id')
+            ->get();
+
+        $totalRevenue = round((float) $payments->sum('amount'), 2);
+        $byMethod = $payments->groupBy('payment_method')->map(fn ($group) => round((float) $group->sum('amount'), 2))->all();
+
+        $methodLabels = [
+            'cash' => 'Efectivo',
+            'card' => 'Tarjeta',
+            'transfer' => 'Transferencia',
+            'stripe' => 'Stripe',
+            'recurrente' => 'Recurrente',
+        ];
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $companyName = config('app.name', 'IronGym');
+        $periodLabel = $from === $to
+            ? \Carbon\Carbon::parse($from)->format('d/m/Y')
+            : \Carbon\Carbon::parse($from)->format('d/m/Y') . ' - ' . \Carbon\Carbon::parse($to)->format('d/m/Y');
+
+        $sheet->setCellValue('A1', $companyName);
+        $sheet->mergeCells('A1:F1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->setCellValue('A2', 'Corte de Caja - ' . $periodLabel);
+        $sheet->mergeCells('A2:F2');
+        $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(11);
+        $sheet->setCellValue('A3', 'Generado: ' . now()->format('d/m/Y H:i'));
+        $sheet->mergeCells('A3:F3');
+        $sheet->getStyle('A3')->getFont()->setSize(9)->setItalic(true);
+
+        $headers = ['#', 'Fecha', 'Cliente', 'Método', 'Monto (Q)', 'Referencia / Notas'];
+        $headerRow = 5;
+        foreach ($headers as $i => $h) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->setCellValue($col . $headerRow, $h);
+        }
+        $sheet->getStyle("A{$headerRow}:F{$headerRow}")->applyFromArray([
+            'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4A4A4A']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+        ]);
+
+        $row = $headerRow + 1;
+        $num = 1;
+        foreach ($payments as $p) {
+            $clientName = $p->client
+                ? trim(($p->client->first_name ?? '') . ' ' . ($p->client->last_name ?? ''))
+                : '-';
+            $fecha = $p->paid_at
+                ? $p->paid_at->format('d/m/Y H:i')
+                : ($p->created_at ? $p->created_at->format('d/m/Y H:i') : '-');
+            $metodo = $methodLabels[$p->payment_method] ?? $p->payment_method;
+            $ref = trim(($p->transaction_id ?: '') . ' ' . ($p->notes ?: '')) ?: '-';
+
+            $sheet->setCellValue('A' . $row, $num);
+            $sheet->setCellValue('B' . $row, $fecha);
+            $sheet->setCellValue('C' . $row, $clientName);
+            $sheet->setCellValue('D' . $row, $metodo);
+            $sheet->setCellValue('E' . $row, (float) $p->amount);
+            $sheet->setCellValue('F' . $row, $ref);
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
+            $row++;
+            $num++;
+        }
+
+        $dataEnd = $row - 1;
+        if ($dataEnd >= $headerRow + 1) {
+            $sheet->getStyle('A' . ($headerRow + 1) . ':F' . $dataEnd)->applyFromArray([
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CCCCCC']]],
+                'font' => ['size' => 9],
+            ]);
+        }
+
+        $row++;
+        foreach ($byMethod as $method => $total) {
+            $sheet->setCellValue('D' . $row, ($methodLabels[$method] ?? $method) . ':');
+            $sheet->setCellValue('E' . $row, $total);
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle("D{$row}:E{$row}")->getFont()->setBold(true);
+            $row++;
+        }
+        $sheet->setCellValue('D' . $row, 'TOTAL INGRESOS');
+        $sheet->setCellValue('E' . $row, $totalRevenue);
+        $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle("D{$row}:E{$row}")->applyFromArray([
+            'font' => ['bold' => true, 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E0E0E0']],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+        ]);
+        $row++;
+
+        foreach (range('A', 'F') as $c) {
+            $sheet->getColumnDimension($c)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'corte-caja-' . substr($from, 0, 10) . (substr($from, 0, 10) !== substr($to, 0, 10) ? '_a_' . substr($to, 0, 10) : '') . '.xlsx';
+        $tempPath = storage_path('app/' . $filename);
+        $writer->save($tempPath);
+
+        return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
     }
 
     /**

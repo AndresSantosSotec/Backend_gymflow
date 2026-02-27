@@ -203,6 +203,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:PAYMENTS_VIEW');
     Route::get('/payments/corte-caja/pdf', [PaymentController::class, 'corteCajaPdf'])
         ->middleware('permission:PAYMENTS_VIEW');
+    Route::get('/payments/corte-caja/excel', [PaymentController::class, 'corteCajaExcel'])
+        ->middleware('permission:PAYMENTS_VIEW');
     Route::patch('/payments/{id}/status', [PaymentController::class, 'updateStatus'])
         ->middleware('permission:PAYMENTS_MANAGE');
 
