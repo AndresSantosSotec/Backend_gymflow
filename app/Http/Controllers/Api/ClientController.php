@@ -167,7 +167,13 @@ class ClientController extends Controller
     {
         $client = Client::findOrFail($id);
 
-        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+        // Normalize status to lowercase if present
+        $data = $request->all();
+        if (isset($data['status'])) {
+            $data['status'] = strtolower($data['status']);
+        }
+
+        $validator = \Illuminate\Support\Facades\Validator::make($data, [
             'first_name' => 'sometimes|required|string|max:255',
             'last_name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|nullable|email|max:255',
@@ -195,7 +201,7 @@ class ClientController extends Controller
             \Illuminate\Support\Facades\Log::error('Client Update Validation Failed', [
                 'client_id' => $id,
                 'errors' => $validator->errors()->toArray(),
-                'data' => $request->all()
+                'data' => $data
             ]);
             return response()->json([
                 'message' => 'Error de validación',
