@@ -118,6 +118,11 @@ class ClientController extends Controller
 
         $validated = $validator->validate();
 
+        // Convert empty email to null
+        if (isset($validated['email']) && trim($validated['email']) === '') {
+            $validated['email'] = null;
+        }
+
         $validated['qr_code'] = 'GYM-' . Str::upper(Str::random(10));
         $validated['status'] = 'active';
 
@@ -162,15 +167,15 @@ class ClientController extends Controller
     {
         $client = Client::findOrFail($id);
 
-        $validated = $request->validate([
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'first_name' => 'sometimes|required|string|max:255',
             'last_name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|nullable|email',
+            'email' => 'sometimes|nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'phone_secondary' => 'nullable|string|max:20',
-            'dni' => 'nullable|string',
-            'nit' => 'nullable|string',
-            'company_name' => 'nullable|string',
+            'dni' => 'nullable|string|max:255',
+            'nit' => 'nullable|string|max:255',
+            'company_name' => 'nullable|string|max:255',
             'fiscal_address' => 'nullable|string',
             'birth_date' => 'nullable|date',
             'gender' => 'nullable|in:M,F,other',
@@ -185,6 +190,32 @@ class ClientController extends Controller
             'medical_conditions' => 'nullable|string',
             'referral_source' => 'nullable|string|max:255',
         ]);
+
+        if ($validator->fails()) {
+            \Illuminate\Support\Facades\Log::error('Client Update Validation Failed', [
+                'client_id' => $id,
+                'errors' => $validator->errors()->toArray(),
+                'data' => $request->all()
+            ]);
+            return response()->json([
+                'message' => 'Error de validación',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $validated = $validator->validated();
+
+        // Convert empty strings to null for nullable fields
+        $nullableFields = ['email', 'phone', 'phone_secondary', 'dni', 'nit', 'company_name',
+                          'fiscal_address', 'birth_date', 'address', 'photo_url', 'notes',
+                          'emergency_contact_name', 'emergency_contact_phone', 'medical_conditions',
+                          'referral_source'];
+
+        foreach ($nullableFields as $field) {
+            if (isset($validated[$field]) && is_string($validated[$field]) && trim($validated[$field]) === '') {
+                $validated[$field] = null;
+            }
+        }
 
         $client->update($validated);
 

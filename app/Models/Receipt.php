@@ -76,23 +76,39 @@ class Receipt extends Model
     public static function generateReceiptNumber()
     {
         $prefix = 'REC-' . date('Y') . '-';
+        $maxAttempts = 10;
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($prefix) {
-            // Incluir soft-deleted para no reutilizar números; lock para evitar duplicados por concurrencia
-            $lastReceipt = self::withTrashed()
-                ->where('receipt_number', 'like', $prefix . '%')
-                ->orderByRaw('CAST(SUBSTRING(receipt_number, LOCATE(\'-\', receipt_number, 5) + 1) AS UNSIGNED) DESC')
-                ->lockForUpdate()
-                ->first();
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            return \Illuminate\Support\Facades\DB::transaction(function () use ($prefix) {
+                // Incluir soft-deleted para no reutilizar números; lock para evitar duplicados por concurrencia
+                $lastReceipt = self::withTrashed()
+                    ->where('receipt_number', 'like', $prefix . '%')
+                    ->orderByRaw('CAST(SUBSTRING(receipt_number, LOCATE(\'-\', receipt_number, 5) + 1) AS UNSIGNED) DESC')
+                    ->lockForUpdate()
+                    ->first();
 
-            if ($lastReceipt && preg_match('/-(\d+)$/', $lastReceipt->receipt_number, $m)) {
-                $newNumber = str_pad((int) $m[1] + 1, 6, '0', STR_PAD_LEFT);
-            } else {
-                $newNumber = '000001';
-            }
+                if ($lastReceipt && preg_match('/-(\d+)$/', $lastReceipt->receipt_number, $m)) {
+                    $newNumber = str_pad((int) $m[1] + 1, 6, '0', STR_PAD_LEFT);
+                } else {
+                    $newNumber = '000001';
+                }
 
-            return $prefix . $newNumber;
-        });
+                $receiptNumber = $prefix . $newNumber;
+
+                // Verify it doesn't exist (extra safety check)
+                $exists = self::withTrashed()
+                    ->where('receipt_number', $receiptNumber)
+                    ->exists();
+
+                if ($exists) {
+                    throw new \Exception("Receipt number {$receiptNumber} already exists");
+                }
+
+                return $receiptNumber;
+            });
+        }
+
+        throw new \Exception("Failed to generate unique receipt number after {$maxAttempts} attempts");
     }
 
     /**
