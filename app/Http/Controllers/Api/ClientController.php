@@ -9,7 +9,9 @@ use App\Services\FingerprintService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
+
 
 class ClientController extends Controller
 {
@@ -79,7 +81,16 @@ class ClientController extends Controller
             $relations[] = 'accessLogs';
         }
 
-        $clients = $query->with($relations)->paginate($request->per_page ?? 15);
+        $version = Cache::rememberForever('clients_v', function () {
+            return time();
+        });
+
+        
+        $cacheKey = 'clients_v' . $version . '_' . md5(json_encode($request->all()));
+
+        $clients = Cache::remember($cacheKey, 60, function () use ($query, $relations, $request) {
+            return $query->with($relations)->paginate($request->per_page ?? 15);
+        });
 
         return response()->json($clients);
     }
@@ -127,6 +138,9 @@ class ClientController extends Controller
         $validated['status'] = 'active';
 
         $client = Client::create($validated);
+        
+        // Limpiar cache de listado de clientes
+        $this->clearCache();
 
         return response()->json($client->load('memberships'), 201);
     }
@@ -541,5 +555,10 @@ class ClientController extends Controller
             ->get();
 
         return response()->json($clients);
+    }
+    
+    private function clearCache()
+    {
+        Cache::put('clients_v', time());
     }
 }
