@@ -85,7 +85,7 @@ class ClientController extends Controller
             return time();
         });
 
-        
+
         $cacheKey = 'clients_v' . $version . '_' . md5(json_encode($request->all()));
 
         $clients = Cache::remember($cacheKey, 60, function () use ($query, $relations, $request) {
@@ -138,7 +138,7 @@ class ClientController extends Controller
         $validated['status'] = 'active';
 
         $client = Client::create($validated);
-        
+
         // Limpiar cache de listado de clientes
         $this->clearCache();
 
@@ -181,10 +181,20 @@ class ClientController extends Controller
     {
         $client = Client::findOrFail($id);
 
-        // Normalize status to lowercase if present
+        // Normalize data before validation
         $data = $request->all();
         if (isset($data['status'])) {
             $data['status'] = strtolower($data['status']);
+        }
+        // Convert empty strings to null for nullable fields BEFORE validation
+        $preCastNullable = ['email', 'phone', 'phone_secondary', 'dni', 'nit', 'company_name',
+                           'fiscal_address', 'birth_date', 'address', 'photo_url', 'notes',
+                           'emergency_contact_name', 'emergency_contact_phone', 'medical_conditions',
+                           'referral_source'];
+        foreach ($preCastNullable as $field) {
+            if (isset($data[$field]) && is_string($data[$field]) && trim($data[$field]) === '') {
+                $data[$field] = null;
+            }
         }
 
         $validator = \Illuminate\Support\Facades\Validator::make($data, [
@@ -556,7 +566,7 @@ class ClientController extends Controller
 
         return response()->json($clients);
     }
-    
+
     private function clearCache()
     {
         Cache::put('clients_v', time());

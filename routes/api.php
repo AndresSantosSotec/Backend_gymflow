@@ -150,11 +150,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Access verification (CRÍTICO - Core business logic)
     // Route::post('/access/verify-qr', [AccessLogController::class, 'verifyQR']); // Moved to public
     // Route::post('/access/verify-fingerprint', [AccessLogController::class, 'verifyFingerprint']); // Moved to public
-    // ROADMAP FUTURO — Accesos
-    // Route::get('/access/recent', [AccessLogController::class, 'recent'])
-    //     ->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE');
-    // Route::get('/access/by-client/{clientId}', [AccessLogController::class, 'byClient'])
-    //     ->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE');
+    // Accesos - Dashboard y consultas
+    Route::get('/access/recent', [AccessLogController::class, 'recent'])
+        ->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE,DASHBOARD_VIEW,CLIENTS_VIEW');
+    Route::get('/access/by-client/{clientId}', [AccessLogController::class, 'byClient'])
+        ->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE,CLIENTS_VIEW');
 
     // Clients special routes
     Route::get('/clients/qr/{qrCode}', [ClientController::class, 'getByQR'])

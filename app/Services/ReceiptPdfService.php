@@ -286,7 +286,15 @@ class ReceiptPdfService
             'companyAddress' => config('site.company_address', 'Guatemala, Guatemala'),
             'companyPhone' => config('site.company_phone', '(502) 0000-0000'),
             'companyEmail' => config('site.company_email', 'info@irongym.gt'),
+            'logoBase64' => null,
         ];
+
+        // Embed logo as base64 so DomPDF can render it without remote/file access issues
+        $logoPath = public_path('images/Logo.png');
+        if (file_exists($logoPath)) {
+            $mime = mime_content_type($logoPath);
+            $data['logoBase64'] = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoPath));
+        }
 
         if ($includeTax) {
             $data['companyTax'] = config('site.company_tax_id', 'NIT no configurado');

@@ -141,7 +141,11 @@
     <table class="header" cellpadding="0" cellspacing="0">
         <tr>
             <td style="width:55%;">
+                @if(!empty($logoBase64))
+                <img src="{{ $logoBase64 }}" alt="Logo" style="height:45px; margin-bottom:3px; display:block;" />
+                @else
                 <div class="company-name">{{ $companyName }}</div>
+                @endif
                 <div style="font-size:8px; color:#555;">{{ $companyAddress }}</div>
                 <div style="font-size:8px; color:#555;">Tel: {{ $companyPhone }} | {{ $companyEmail }}</div>
             </td>

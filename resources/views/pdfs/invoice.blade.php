@@ -41,7 +41,11 @@
     <table class="header" cellpadding="0" cellspacing="0">
         <tr>
             <td style="width:58%;">
+                @if(!empty($logoBase64))
+                <img src="{{ $logoBase64 }}" alt="Logo" style="height:48px; margin-bottom:4px; display:block;" />
+                @else
                 <div class="company-name">{{ $companyName }}</div>
+                @endif
                 <p class="company-sub">Factura Electronica</p>
                 <p class="company-detail"><strong>NIT:</strong> {{ $companyTax }}</p>
                 <p class="company-detail">{{ $companyAddress }}</p>
