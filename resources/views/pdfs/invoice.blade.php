@@ -38,6 +38,7 @@
     </style>
 </head>
 <body>
+    @include('pdfs.partials.logo')
     <table class="header" cellpadding="0" cellspacing="0">
         <tr>
             <td style="width:58%;">
