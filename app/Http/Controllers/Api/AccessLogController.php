@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AccessLog;
 use App\Models\Client;
+use App\Services\FingerprintService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -79,6 +80,81 @@ class AccessLogController extends Controller
     /**
      * Verify access by fingerprint (CRÍTICO)
      */
+    /**
+     * 1:N fingerprint identification — receive a live-captured template from the
+     * browser WebSDK, find the matching client, log and return their data.
+     * This public endpoint powers the passive Access Scanner on the frontend.
+     */
+    public function identifyFingerprint(Request $request)
+    {
+        $validated = $request->validate([
+            'fingerprint_template' => 'required|string',
+            'threshold'            => 'nullable|numeric|min:0.1|max:1.0',
+        ]);
+
+        $service   = new FingerprintService();
+        $threshold = (float) ($validated['threshold'] ?? 0.50);
+        $result    = $service->identifyFingerprint($validated['fingerprint_template'], $threshold);
+
+        if (!$result['success']) {
+            // Python server not available — return graceful no-match (don't crash UI)
+            return response()->json([
+                'match'   => false,
+                'client'  => null,
+                'message' => 'Servidor de huellas no disponible.',
+                'error'   => $result['error'] ?? null,
+            ]);
+        }
+
+        $data = $result['data'];
+
+        if (!($data['match'] ?? false)) {
+            return response()->json([
+                'match'         => false,
+                'client'        => null,
+                'similarity_pct' => $data['similarity_pct'] ?? 0,
+                'message'       => 'No se encontró coincidencia.',
+            ]);
+        }
+
+        $clientId = $data['client_id'] ?? null;
+        $client   = $clientId ? Client::with(['memberships' => function ($q) {
+            $q->orderBy('end_date', 'desc');
+        }])->find($clientId) : null;
+
+        if (!$client) {
+            return response()->json([
+                'match'   => false,
+                'client'  => null,
+                'message' => 'Cliente no encontrado en la base de datos.',
+            ]);
+        }
+
+        $allowed = $this->checkClientAccess($client);
+
+        // Log the access event
+        AccessLog::create([
+            'client_id'           => $client->id,
+            'access_type'         => 'entry',
+            'verification_method' => 'fingerprint',
+            'qr_code'             => '',
+            'fingerprint_id'      => $client->fingerprint_id,
+            'access_time'         => now(),
+            'status'              => $allowed ? 'allowed' : 'denied',
+            'notes'               => 'Acceso por huella digital (WebSDK — identificación 1:N)',
+        ]);
+
+        return response()->json([
+            'match'          => true,
+            'allowed'        => $allowed,
+            'similarity_pct' => $data['similarity_pct'] ?? 0,
+            'client'         => $client,
+            'message'        => $allowed
+                ? "¡Bienvenido/a {$client->first_name}!"
+                : "Membresía vencida — {$client->full_name}",
+        ]);
+    }
+
     public function verifyFingerprint(Request $request)
     {
         $validated = $request->validate([

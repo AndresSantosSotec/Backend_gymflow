@@ -77,6 +77,7 @@ Route::post('/public/leads', [LeadController::class, 'publicStore']);
 // Access verification (Public for Kiosk/Identifier)
 Route::post('/access/verify-qr', [AccessLogController::class, 'verifyQR']);
 Route::post('/access/verify-fingerprint', [AccessLogController::class, 'verifyFingerprint']);
+Route::post('/access/identify-fingerprint', [AccessLogController::class, 'identifyFingerprint']);
 
 // Recurrente Webhook (público, sin autenticación — Recurrente envía aquí)
 Route::post('/webhooks/recurrente', [RecurrenteWebhookController::class, 'handle']);
@@ -167,26 +168,28 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:CLIENTS_EDIT');
     Route::delete('/clients/{id}/photo', [ClientController::class, 'removePhoto'])
         ->middleware('permission:CLIENTS_EDIT');
-    // ROADMAP FUTURO — Huellas Digitales
-    // Route::post('/clients/{id}/fingerprint', [ClientController::class, 'registerFingerprint'])
-    //     ->middleware('permission:CLIENTS_EDIT,ACCESS_MANAGE');
-    // Route::delete('/clients/{id}/fingerprint', [ClientController::class, 'removeFingerprint'])
-    //     ->middleware('permission:CLIENTS_EDIT,ACCESS_MANAGE');
-    // Route::get('/clients/{id}/fingerprint', [ClientController::class, 'fingerprintStatus'])
-    //     ->middleware('permission:CLIENTS_VIEW,ACCESS_VIEW');
+    // Huellas Digitales
+    Route::post('/clients/{id}/fingerprint', [ClientController::class, 'registerFingerprint'])
+        ->middleware('permission:CLIENTS_EDIT,ACCESS_MANAGE');
+    Route::delete('/clients/{id}/fingerprint', [ClientController::class, 'removeFingerprint'])
+        ->middleware('permission:CLIENTS_EDIT,ACCESS_MANAGE');
+    Route::get('/clients/{id}/fingerprint/status', [ClientController::class, 'fingerprintStatus'])
+        ->middleware('permission:CLIENTS_VIEW,ACCESS_VIEW');
     Route::post('/clients/{id}/regenerate-qr', [ClientController::class, 'regenerateQR'])
         ->middleware('permission:CLIENTS_EDIT');
     Route::patch('/clients/{id}/status', [ClientController::class, 'toggleStatus'])
         ->middleware('permission:CLIENTS_EDIT');
 
-    // ROADMAP FUTURO — Fingerprint Device/Server Management
-    // Route::prefix('fingerprint-status')->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE')->group(function () {
-    //     Route::get('/device-status', [FingerprintStatusController::class, 'deviceStatus']);
-    //     Route::post('/capture', [FingerprintStatusController::class, 'capture']);
-    //     Route::get('/list', [FingerprintStatusController::class, 'listFingerprints']);
-    //     Route::post('/sync', [FingerprintStatusController::class, 'syncAll']);
-    //     Route::get('/test-connection', [FingerprintStatusController::class, 'testConnection']);
-    // });
+    // Fingerprint Device/Server Management
+    Route::prefix('fingerprint')->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE')->group(function () {
+        Route::get('/device-status', [FingerprintStatusController::class, 'deviceStatus']);
+        Route::post('/capture', [FingerprintStatusController::class, 'capture']);
+        Route::post('/verify-live', [FingerprintStatusController::class, 'verifyLive']);
+        Route::get('/list', [FingerprintStatusController::class, 'listFingerprints']);
+        Route::get('/{fp_id}', [FingerprintStatusController::class, 'show']);
+        Route::post('/sync-all', [FingerprintStatusController::class, 'syncAll']);
+        Route::get('/test-connection', [FingerprintStatusController::class, 'testConnection']);
+    });
 
     // Memberships special routes
     Route::post('/memberships/assign', [MembershipController::class, 'assign'])

@@ -15,9 +15,16 @@ class FingerprintService
     private string $baseUrl;
 
     /**
-     * Timeout para las solicitudes
+     * Timeout para captura: espera a que el usuario coloque el dedo (largo).
      */
-    private int $timeout = 30;
+    private int $timeout = 33;
+
+    /**
+     * Timeout para operaciones de sincronización con el servidor Python
+     * (register, delete, verify).  Si el servidor no está activo fallará
+     * rápido y el guardado en BD continuará de inmediato.
+     */
+    private int $deviceSyncTimeout = 3;
 
     /**
      * Constructor
@@ -77,7 +84,8 @@ class FingerprintService
 
             return [
                 'success' => false,
-                'error' => 'Failed to capture fingerprint',
+                'error' => $response->json()['error'] ?? 'Failed to capture fingerprint',
+                'needs_admin' => $response->json()['needs_admin'] ?? false,
                 'status' => $response->status(),
             ];
         } catch (Exception $e) {
@@ -103,7 +111,7 @@ class FingerprintService
             ];
 
             /** @var \Illuminate\Http\Client\Response $response */
-            $response = Http::timeout($this->timeout)
+            $response = Http::timeout($this->deviceSyncTimeout)
                 ->post("{$this->baseUrl}/fingerprint/register", $payload);
 
             if ($response->successful()) {
@@ -141,7 +149,7 @@ class FingerprintService
     {
         try {
             /** @var \Illuminate\Http\Client\Response $response */
-            $response = Http::timeout($this->timeout)
+            $response = Http::timeout($this->deviceSyncTimeout)
                 ->post("{$this->baseUrl}/fingerprint/verify", [
                     'fingerprint_id' => $fingerprintId,
                     'device_id' => config('services.fingerprint.device_id', 'default'),
@@ -181,7 +189,7 @@ class FingerprintService
     {
         try {
             /** @var \Illuminate\Http\Client\Response $response */
-            $response = Http::timeout($this->timeout)
+            $response = Http::timeout($this->deviceSyncTimeout)
                 ->delete("{$this->baseUrl}/fingerprint/{$fingerprintId}");
 
             if ($response->successful()) {
@@ -201,6 +209,41 @@ class FingerprintService
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Identificar a qué cliente pertenece una huella (búsqueda 1:N).
+     * Llama al endpoint /api/fingerprint/identify del servidor Python,
+     * que compara el template recibido contra todos los almacenados en SQLite.
+     */
+    public function identifyFingerprint(string $fingerprintTemplate, float $threshold = 0.50): array
+    {
+        try {
+            /** @var \Illuminate\Http\Client\Response $response */
+            $response = Http::timeout(10)
+                ->post("{$this->baseUrl}/fingerprint/identify", [
+                    'fingerprint_template' => $fingerprintTemplate,
+                    'threshold'            => $threshold,
+                ]);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data'    => $response->json(),
+                ];
+            }
+
+            return [
+                'success' => false,
+                'error'   => 'Python server identify error: ' . $response->status(),
+            ];
+        } catch (Exception $e) {
+            Log::warning("Fingerprint identify error: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error'   => $e->getMessage(),
             ];
         }
     }
@@ -312,6 +355,71 @@ class FingerprintService
                 'error' => 'Cannot connect to fingerprint server',
                 'url' => $this->baseUrl,
                 'details' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Obtener huella por ID (incluye imagen base64 almacenada).
+     */
+    public function getFingerprintById(string $fingerprintId): array
+    {
+        try {
+            /** @var \Illuminate\Http\Client\Response $response */
+            $response = Http::timeout($this->timeout)
+                ->get("{$this->baseUrl}/fingerprint/{$fingerprintId}");
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json(),
+                ];
+            }
+
+            return [
+                'success' => false,
+                'error' => 'Fingerprint not found',
+                'status' => $response->status(),
+            ];
+        } catch (Exception $e) {
+            Log::error("getFingerprintById error: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Verificar huella en vivo contra un fingerprint_id almacenado.
+     * Retorna imagen de la captura en vivo para que el frontend la muestre.
+     */
+    public function verifyLive(string $fingerprintId): array
+    {
+        try {
+            /** @var \Illuminate\Http\Client\Response $response */
+            $response = Http::timeout(30)
+                ->post("{$this->baseUrl}/fingerprint/verify-live", [
+                    'fingerprint_id' => $fingerprintId,
+                ]);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data'    => $response->json(),
+                ];
+            }
+
+            return [
+                'success' => false,
+                'error'   => 'Verify-live failed',
+                'status'  => $response->status(),
+            ];
+        } catch (Exception $e) {
+            Log::error("verifyLive error: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error'   => $e->getMessage(),
             ];
         }
     }

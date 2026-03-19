@@ -42,4 +42,11 @@ return [
         'env'        => env('RECURRENTE_ENV', 'production'),
     ],
 
+    'fingerprint' => [
+        'url'       => env('FINGERPRINT_SERVER_URL', 'http://localhost:8089/api'),
+        'device_id' => env('FINGERPRINT_DEVICE_ID', 'default'),
+        'enabled'   => env('FINGERPRINT_ENABLED', true),
+        'timeout'   => env('FINGERPRINT_TIMEOUT', 15),
+    ],
+
 ];

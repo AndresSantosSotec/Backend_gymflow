@@ -378,24 +378,18 @@ class ClientController extends Controller
             'quality' => 'nullable|integer|min:0|max:100',
         ]);
 
-        // Inicializar servicio de huella digital
+        // Intentar registrar en el servidor de biometría; si no está disponible,
+        // continuar de todas formas (la huella queda almacenada en la BD).
         $fingerprintService = new FingerprintService();
 
-        // Registrar huella con el dispositivo/servidor Java
         $deviceResponse = $fingerprintService->registerFingerprintWithDevice(
             $client,
             $validated['fingerprint_template']
         );
 
-        if (!$deviceResponse['success']) {
-            return response()->json([
-                'message' => 'Error registering fingerprint with device',
-                'error' => $deviceResponse['error'] ?? 'Unknown error',
-            ], 500);
-        }
-
-        // Generar un ID único de huella basado en la respuesta del dispositivo
-        $fingerprintId = $deviceResponse['fingerprint_id'] ?? 'FP-' . $client->id . '-' . now()->timestamp . '-' . Str::random(8);
+        // Generar ID único: usar el que devuelve el servidor biométrico o generarlo aquí
+        $fingerprintId = $deviceResponse['fingerprint_id']
+            ?? 'FP-' . $client->id . '-' . now()->timestamp . '-' . Str::random(8);
 
         // Guardar en la base de datos
         $client->registerFingerprint(
