@@ -78,6 +78,8 @@ Route::post('/public/leads', [LeadController::class, 'publicStore']);
 Route::post('/access/verify-qr', [AccessLogController::class, 'verifyQR']);
 Route::post('/access/verify-fingerprint', [AccessLogController::class, 'verifyFingerprint']);
 Route::post('/access/identify-fingerprint', [AccessLogController::class, 'identifyFingerprint']);
+// Logs a fingerprint access after local 1:N matching by the Python bridge (no server-side cURL needed)
+Route::post('/access/log-fingerprint-access', [AccessLogController::class, 'logFingerprintAccess']);
 
 // Recurrente Webhook (público, sin autenticación — Recurrente envía aquí)
 Route::post('/webhooks/recurrente', [RecurrenteWebhookController::class, 'handle']);

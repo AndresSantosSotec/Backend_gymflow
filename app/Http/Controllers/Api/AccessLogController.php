@@ -155,6 +155,61 @@ class AccessLogController extends Controller
         ]);
     }
 
+    /**
+     * Log a fingerprint access event whose 1:N matching was already performed
+     * locally by the Python bridge server (localhost:8089).
+     *
+     * The frontend calls the Python server directly to avoid the remote-server
+     * cURL error, then sends the matched client_id here so we can record the
+     * access log and return full client + membership data.
+     *
+     * POST /access/log-fingerprint-access
+     * Body: { client_id, similarity_pct?, fingerprint_id? }
+     */
+    public function logFingerprintAccess(Request $request)
+    {
+        $validated = $request->validate([
+            'client_id'      => 'required|integer',
+            'similarity_pct' => 'nullable|integer',
+            'fingerprint_id' => 'nullable|string',
+        ]);
+
+        $client = Client::with(['memberships' => function ($q) {
+            $q->orderBy('end_date', 'desc');
+        }])->find($validated['client_id']);
+
+        if (!$client) {
+            return response()->json([
+                'match'   => false,
+                'client'  => null,
+                'message' => 'Cliente no encontrado en la base de datos.',
+            ]);
+        }
+
+        $allowed = $this->checkClientAccess($client);
+
+        AccessLog::create([
+            'client_id'           => $client->id,
+            'access_type'         => 'entry',
+            'verification_method' => 'fingerprint',
+            'qr_code'             => '',
+            'fingerprint_id'      => $client->fingerprint_id ?? $validated['fingerprint_id'] ?? '',
+            'access_time'         => now(),
+            'status'              => $allowed ? 'allowed' : 'denied',
+            'notes'               => 'Acceso por huella digital (identificación local — Python bridge)',
+        ]);
+
+        return response()->json([
+            'match'          => true,
+            'allowed'        => $allowed,
+            'similarity_pct' => $validated['similarity_pct'] ?? 0,
+            'client'         => $client,
+            'message'        => $allowed
+                ? "¡Bienvenido/a {$client->first_name}!"
+                : "Membresía vencida — {$client->full_name}",
+        ]);
+    }
+
     public function verifyFingerprint(Request $request)
     {
         $validated = $request->validate([
