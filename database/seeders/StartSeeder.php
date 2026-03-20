@@ -46,9 +46,9 @@ class StartSeeder extends Seeder
             ['name' => 'Ver Inventario', 'slug' => 'INVENTORY_VIEW', 'description' => 'Permite ver el stock de productos'],
             ['name' => 'Gestionar Inventario', 'slug' => 'INVENTORY_MANAGE', 'description' => 'Permite ajustar stock y catálogo'],
 
-            // Accesos / Huellas Digitales — ROADMAP FUTURO
-            // ['name' => 'Ver Accesos', 'slug' => 'ACCESS_VIEW', 'description' => 'Permite ver registros de entrada (QR/Huella)'],
-            // ['name' => 'Gestionar Accesos', 'slug' => 'ACCESS_MANAGE', 'description' => 'Permite autorizar o denegar accesos manuales'],
+            // Accesos / Huellas Digitales
+            ['name' => 'Ver Accesos', 'slug' => 'ACCESS_VIEW', 'description' => 'Permite ver registros de entrada (QR/Huella)'],
+            ['name' => 'Gestionar Accesos', 'slug' => 'ACCESS_MANAGE', 'description' => 'Permite autorizar o denegar accesos manuales'],
 
             // Configuración y Sistema
             ['name' => 'Ver Configuración', 'slug' => 'SETTINGS_VIEW', 'description' => 'Permite ver los ajustes del sistema'],
@@ -111,7 +111,8 @@ class StartSeeder extends Seeder
             'MEMBERSHIPS_VIEW', 'MEMBERSHIPS_MANAGE',
             'PAYMENTS_VIEW', 'PAYMENTS_MANAGE',
             'CASH_VIEW', 'CASH_MANAGE',
-            'INVENTORY_VIEW'
+            'INVENTORY_VIEW',
+            'ACCESS_VIEW', 'ACCESS_MANAGE'
         ])->pluck('id');
         $staffRole->permissions()->sync($staffPermissions);
 

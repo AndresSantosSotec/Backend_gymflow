@@ -53,9 +53,9 @@ class RolesAndPermissionsSeeder extends Seeder
             ['name' => 'Ver Cotizaciones',       'slug' => 'QUOTES_VIEW'],
             ['name' => 'Clientes Comerciales',   'slug' => 'SALES_CLIENTS_MANAGE'],
 
-            // Control de Acceso — ROADMAP FUTURO
-            // ['name' => 'Ver Control Acceso',     'slug' => 'ACCESS_VIEW'],
-            // ['name' => 'Gestionar Acceso',       'slug' => 'ACCESS_MANAGE'],
+            // Control de Acceso
+            ['name' => 'Ver Control Acceso',     'slug' => 'ACCESS_VIEW'],
+            ['name' => 'Gestionar Acceso',       'slug' => 'ACCESS_MANAGE'],
 
             // Configuración
             ['name' => 'Ver Configuración',      'slug' => 'SETTINGS_VIEW'],
@@ -100,6 +100,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'MEMBERSHIPS_VIEW', 'MEMBERSHIPS_MANAGE',
                 'PAYMENTS_VIEW',
                 'CASH_VIEW',
+                'ACCESS_VIEW', 'ACCESS_MANAGE',
             ])->pluck('id')
         );
 
@@ -114,6 +115,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'CLIENTS_VIEW',
                 'PLANS_VIEW',
                 'MEMBERSHIPS_VIEW',
+                'ACCESS_VIEW',
             ])->pluck('id')
         );
 

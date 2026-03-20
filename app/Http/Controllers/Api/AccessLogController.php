@@ -18,19 +18,51 @@ class AccessLogController extends Controller
     {
         $query = AccessLog::with('client');
 
-        if ($request->has('client_id')) {
+        if ($request->filled('client_id')) {
             $query->where('client_id', $request->client_id);
         }
 
-        if ($request->has('status')) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        if ($request->has('limit')) {
+        if ($request->filled('verification_method')) {
+            $query->where('verification_method', $request->verification_method);
+        }
+
+        if ($request->filled('access_type')) {
+            $query->where('access_type', $request->access_type);
+        }
+
+        $tz = 'America/Guatemala';
+        if ($request->filled('date_from')) {
+            $from = Carbon::parse($request->date_from, $tz)->startOfDay()->utc();
+            $query->where('access_time', '>=', $from);
+        }
+
+        if ($request->filled('date_to')) {
+            $to = Carbon::parse($request->date_to, $tz)->endOfDay()->utc();
+            $query->where('access_time', '<=', $to);
+        }
+
+        if ($request->filled('search')) {
+            $search = trim((string) $request->search);
+            $query->whereHas('client', function ($clientQuery) use ($search) {
+                $clientQuery->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('dni', 'like', "%{$search}%");
+            });
+        }
+
+        $query->orderBy('access_time', 'desc');
+
+        if ($request->filled('limit')) {
             $limit = min((int)$request->limit, 100);
-            $logs = $query->orderBy('access_time', 'desc')->limit($limit)->get();
+            $logs = $query->limit($limit)->get();
         } else {
-            $logs = $query->orderBy('access_time', 'desc')->paginate($request->per_page ?? 15);
+            $logs = $query->paginate($request->integer('per_page', 15));
         }
 
         return response()->json($logs);

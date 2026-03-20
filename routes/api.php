@@ -105,9 +105,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:MEMBERSHIPS_VIEW,MEMBERSHIPS_MANAGE');
     Route::apiResource('payments', PaymentController::class)
         ->middleware('permission:PAYMENTS_VIEW,PAYMENTS_MANAGE');
-    // ROADMAP FUTURO — Control de Acceso y Huellas Digitales
-    // Route::apiResource('access-logs', AccessLogController::class)
-    //     ->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE');
+    Route::apiResource('access-logs', AccessLogController::class)
+        ->middleware('permission:ACCESS_VIEW,ACCESS_MANAGE');
     Route::apiResource('leads', LeadController::class)
         ->middleware('permission:CLIENTS_VIEW,CLIENTS_CREATE');
     Route::apiResource('blog-posts', BlogPostController::class)
@@ -276,6 +275,12 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:PRODUCTS_VIEW,PRODUCTS_CREATE,PRODUCTS_EDIT,PRODUCTS_DELETE');
     Route::apiResource('inventario', InventoryController::class)
         ->middleware('permission:INVENTORY_VIEW,INVENTORY_IN,INVENTORY_OUT,INVENTORY_MANAGE');
+    Route::get('ventas/corte-caja', [SaleController::class, 'corteCaja'])
+        ->middleware('permission:SALES_VIEW');
+    Route::get('ventas/corte-caja/pdf', [SaleController::class, 'corteCajaPdf'])
+        ->middleware('permission:SALES_VIEW');
+    Route::get('ventas/corte-caja/excel', [SaleController::class, 'corteCajaExcel'])
+        ->middleware('permission:SALES_VIEW');
     Route::apiResource('ventas', SaleController::class)
         ->middleware('permission:SALES_VIEW,SALES_CREATE');
     Route::apiResource('clientes-ventas', ClientVentaController::class)
