@@ -270,7 +270,7 @@ class PaymentController extends Controller
 
         $companyName = config('app.name', 'IronGym');
         $companyAddress = config('site.company_address', 'Guatemala, Guatemala');
-        $companyPhone = config('site.company_phone', '(502) 0000-0000');
+        $companyPhone = config('site.company_phone', '5868 7153');
         $companyEmail = config('site.company_email', 'info@irongym.gt');
 
         $pdf = Pdf::loadView('pdfs.corte_caja', [

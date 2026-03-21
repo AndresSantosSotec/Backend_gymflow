@@ -453,7 +453,7 @@ class ReceiptController extends Controller
 
             $companyName = config('app.name', 'IronGym');
             $companyAddress = config('site.company_address', 'Dirección no configurada');
-            $companyPhone = config('site.company_phone', 'Teléfono no configurado');
+            $companyPhone = config('site.company_phone', '5868 7153');
             $companyEmail = config('site.company_email', 'email@irongym.local');
 
             return view('pdfs.receipt', [
@@ -488,7 +488,7 @@ class ReceiptController extends Controller
 
             $companyName = config('app.name', 'IronGym');
             $companyAddress = config('site.company_address', 'Dirección no configurada');
-            $companyPhone = config('site.company_phone', 'Teléfono no configurado');
+            $companyPhone = config('site.company_phone', '5868 7153');
             $companyEmail = config('site.company_email', 'email@irongym.local');
             $companyTax = config('site.company_tax_id', 'RFC/TAX no configurado');
 

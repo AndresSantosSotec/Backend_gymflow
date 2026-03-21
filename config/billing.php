@@ -27,7 +27,7 @@ return [
         'name' => env('COMPANY_NAME', 'IronGym'),
         'tax_id' => env('COMPANY_TAX_ID', ''),
         'address' => env('COMPANY_ADDRESS', ''),
-        'phone' => env('COMPANY_PHONE', ''),
+        'phone' => env('COMPANY_PHONE', '5868 7153'),
         'email' => env('COMPANY_EMAIL', ''),
     ],
 
