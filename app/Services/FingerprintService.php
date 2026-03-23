@@ -100,7 +100,7 @@ class FingerprintService
     /**
      * Registrar huella digital en el servidor Java
      */
-    public function registerFingerprintWithDevice(Client $client, string $fingerprintTemplate): array
+    public function registerFingerprintWithDevice(Client $client, string $fingerprintTemplate, array $extraTemplates = []): array
     {
         try {
             $payload = [
@@ -109,6 +109,10 @@ class FingerprintService
                 'fingerprint_template' => $fingerprintTemplate,
                 'device_id' => config('services.fingerprint.device_id', 'default'),
             ];
+
+            if (!empty($extraTemplates)) {
+                $payload['extra_templates'] = array_values($extraTemplates);
+            }
 
             /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::timeout($this->deviceSyncTimeout)

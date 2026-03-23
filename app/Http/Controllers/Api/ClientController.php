@@ -372,6 +372,9 @@ class ClientController extends Controller
         $validated = $request->validate([
             // El template vendrá del SDK del lector biométrico
             'fingerprint_template' => 'required|string',
+            // Templates adicionales de los escaneos extra (hasta 3 adicionales)
+            'extra_templates'      => 'nullable|array|max:3',
+            'extra_templates.*'    => 'string',
             // ID del dispositivo lector
             'device_id' => 'nullable|string|max:255',
             // Calidad de la captura (0-100), proporcionada por el SDK
@@ -384,7 +387,8 @@ class ClientController extends Controller
 
         $deviceResponse = $fingerprintService->registerFingerprintWithDevice(
             $client,
-            $validated['fingerprint_template']
+            $validated['fingerprint_template'],
+            $validated['extra_templates'] ?? []
         );
 
         // Generar ID único: usar el que devuelve el servidor biométrico o generarlo aquí
