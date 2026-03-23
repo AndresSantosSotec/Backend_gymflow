@@ -403,6 +403,32 @@ class ClientController extends Controller
             $validated['quality'] ?? $deviceResponse['quality'] ?? null,
         );
 
+        // Guardar escaneos adicionales en tabla separada para que el servidor
+        // Python los compare todos durante la identificación 1:N.
+        $extraTemplates = $validated['extra_templates'] ?? [];
+        if (!empty($extraTemplates)) {
+            // Limpiar extras anteriores por si se re-registra (aunque la validación
+            // lo impide, la limpieza es defensiva).
+            \Illuminate\Support\Facades\DB::table('fingerprint_extra_templates')
+                ->where('client_id', $client->id)
+                ->delete();
+
+            $quality = $validated['quality'] ?? $deviceResponse['quality'] ?? null;
+            $extraRows = [];
+            foreach ($extraTemplates as $idx => $tpl) {
+                $extraRows[] = [
+                    'client_id'            => $client->id,
+                    'fingerprint_id'       => $fingerprintId . '-e' . ($idx + 1),
+                    'fingerprint_template' => $tpl,
+                    'scan_index'           => $idx + 1,
+                    'quality'              => $quality,
+                    'created_at'           => now(),
+                    'updated_at'           => now(),
+                ];
+            }
+            \Illuminate\Support\Facades\DB::table('fingerprint_extra_templates')->insert($extraRows);
+        }
+
         return response()->json([
             'message' => 'Huella digital registrada exitosamente',
             'fingerprint_id' => $fingerprintId,
@@ -432,6 +458,9 @@ class ClientController extends Controller
 
         // Eliminar de la base de datos sin importar el resultado del dispositivo
         // (en caso de que el dispositivo esté desconectado)
+        \Illuminate\Support\Facades\DB::table('fingerprint_extra_templates')
+            ->where('client_id', $client->id)
+            ->delete();
         $client->removeFingerprint();
 
         return response()->json([
