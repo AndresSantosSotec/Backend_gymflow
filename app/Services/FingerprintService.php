@@ -100,14 +100,17 @@ class FingerprintService
     /**
      * Registrar huella digital en el servidor Java
      */
-    public function registerFingerprintWithDevice(Client $client, string $fingerprintTemplate, array $extraTemplates = []): array
+    public function registerFingerprintWithDevice(Client $client, string $fingerprintTemplate, array $extraTemplates = [], ?string $deviceId = null, ?string $imageBase64 = null): array
     {
         try {
             $payload = [
-                'client_id' => $client->id,
-                'client_name' => $client->full_name,
+                'client_id'            => $client->id,
+                'client_name'          => $client->full_name,
                 'fingerprint_template' => $fingerprintTemplate,
-                'device_id' => config('services.fingerprint.device_id', 'default'),
+                'device_id'            => $deviceId ?? config('services.fingerprint.device_id', 'default'),
+                'metadata'             => [
+                    'image_base64' => $imageBase64,
+                ],
             ];
 
             if (!empty($extraTemplates)) {

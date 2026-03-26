@@ -425,10 +425,14 @@ class ClientController extends Controller
 
         // ── Sincronizar con servidor Python (timeout 3s; no bloqueante) ─────────
         $fingerprintService = new FingerprintService();
+        $requestedDeviceId  = $validated['device_id'] ?? $request->input('metadata.source') ?? null;
+        $imageBase64        = $request->input('metadata.image_base64');
         $deviceResponse = $fingerprintService->registerFingerprintWithDevice(
             $client,
             $primarySample['template'],
-            array_column($extraSamples, 'template')
+            array_column($extraSamples, 'template'),
+            $requestedDeviceId,
+            $imageBase64
         );
 
         // ID: del servidor Python si lo devolvió, o generado aquí
