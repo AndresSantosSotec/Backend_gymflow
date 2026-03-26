@@ -47,6 +47,8 @@ return [
         'device_id' => env('FINGERPRINT_DEVICE_ID', 'default'),
         'enabled'   => env('FINGERPRINT_ENABLED', true),
         'timeout'   => env('FINGERPRINT_TIMEOUT', 15),
+        'min_enrollment_quality' => env('FINGERPRINT_MIN_ENROLLMENT_QUALITY', 50),
+        'min_enrollment_samples' => env('FINGERPRINT_MIN_ENROLLMENT_SAMPLES', 3),
     ],
 
 ];

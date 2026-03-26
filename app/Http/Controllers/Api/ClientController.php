@@ -362,7 +362,7 @@ class ClientController extends Controller
     {
         $client = Client::findOrFail($id);
 
-        // Validar que no tenga huella registrada ya
+        // Protección: no registrar si ya tiene huella (debe eliminar primero)
         if ($client->fingerprint_id) {
             return response()->json([
                 'message' => 'Este cliente ya tiene una huella digital registrada. Elimínela primero.',
@@ -370,58 +370,93 @@ class ClientController extends Controller
         }
 
         $validated = $request->validate([
-            // El template vendrá del SDK del lector biométrico
             'fingerprint_template' => 'required|string',
-            // Templates adicionales de los escaneos extra (hasta 3 adicionales)
             'extra_templates'      => 'nullable|array|max:3',
             'extra_templates.*'    => 'string',
-            // ID del dispositivo lector
-            'device_id' => 'nullable|string|max:255',
-            // Calidad de la captura (0-100), proporcionada por el SDK
-            'quality' => 'nullable|integer|min:0|max:100',
+            // quality_samples: array paralelo de calidades (0-100) para cada template
+            // Si se envía, debe tener la misma cantidad que templates (principal + extras)
+            'quality_samples'      => 'nullable|array',
+            'quality_samples.*'    => 'nullable|integer|min:0|max:100',
+            'device_id'            => 'nullable|string|max:255',
+            'quality'              => 'nullable|integer|min:0|max:100',
         ]);
 
-        // Intentar registrar en el servidor de biometría; si no está disponible,
-        // continuar de todas formas (la huella queda almacenada en la BD).
-        $fingerprintService = new FingerprintService();
+        // ── Configuración de umbrales de enrolamiento (desde .env / defaults) ──
+        $minEnrollmentQuality = (int) config('services.fingerprint.min_enrollment_quality', 40);
+        $minEnrollmentSamples = (int) config('services.fingerprint.min_enrollment_samples', 3);
 
-        $deviceResponse = $fingerprintService->registerFingerprintWithDevice(
-            $client,
-            $validated['fingerprint_template'],
+        // ── Construir lista completa de (template, quality) ─────────────────────
+        $allTemplates = array_merge(
+            [$validated['fingerprint_template']],
             $validated['extra_templates'] ?? []
         );
+        $qualitySamples = $validated['quality_samples'] ?? [];
 
-        // Generar ID único: usar el que devuelve el servidor biométrico o generarlo aquí
+        // Asignar quality individual: usa quality_samples si disponible,
+        // fallback a quality global, fallback a null
+        $samplesWithQuality = [];
+        foreach ($allTemplates as $i => $tpl) {
+            $q = $qualitySamples[$i] ?? $validated['quality'] ?? null;
+            $samplesWithQuality[] = ['template' => $tpl, 'quality' => $q];
+        }
+
+        // ── Rechazar muestras de calidad insuficiente ───────────────────────────
+        $validSamples = array_filter(
+            $samplesWithQuality,
+            fn($s) => $s['quality'] === null || $s['quality'] >= $minEnrollmentQuality
+        );
+        $validSamples = array_values($validSamples);
+
+        if (count($validSamples) < $minEnrollmentSamples) {
+            return response()->json([
+                'message'          => "Se requieren al menos {$minEnrollmentSamples} muestras de calidad suficiente (≥ {$minEnrollmentQuality}).",
+                'samples_provided' => count($allTemplates),
+                'samples_valid'    => count($validSamples),
+                'min_required'     => $minEnrollmentSamples,
+                'min_quality'      => $minEnrollmentQuality,
+            ], 422);
+        }
+
+        // ── Elegir la mejor muestra como template principal ─────────────────────
+        // Ordenar por quality DESC; si quality es null lo trata como 0
+        usort($validSamples, fn($a, $b) => ($b['quality'] ?? 0) <=> ($a['quality'] ?? 0));
+        $primarySample = $validSamples[0];
+        $extraSamples  = array_slice($validSamples, 1, 3); // hasta 3 extras
+
+        // ── Sincronizar con servidor Python (timeout 3s; no bloqueante) ─────────
+        $fingerprintService = new FingerprintService();
+        $deviceResponse = $fingerprintService->registerFingerprintWithDevice(
+            $client,
+            $primarySample['template'],
+            array_column($extraSamples, 'template')
+        );
+
+        // ID: del servidor Python si lo devolvió, o generado aquí
         $fingerprintId = $deviceResponse['fingerprint_id']
             ?? 'FP-' . $client->id . '-' . now()->timestamp . '-' . Str::random(8);
 
-        // Guardar en la base de datos
+        // ── Guardar template principal en clients ───────────────────────────────
         $client->registerFingerprint(
             $fingerprintId,
-            $validated['fingerprint_template'],
+            $primarySample['template'],
             $validated['device_id'] ?? config('services.fingerprint.device_id', 'default'),
-            $validated['quality'] ?? $deviceResponse['quality'] ?? null,
+            $primarySample['quality'] ?? $deviceResponse['quality'] ?? null,
         );
 
-        // Guardar escaneos adicionales en tabla separada para que el servidor
-        // Python los compare todos durante la identificación 1:N.
-        $extraTemplates = $validated['extra_templates'] ?? [];
-        if (!empty($extraTemplates)) {
-            // Limpiar extras anteriores por si se re-registra (aunque la validación
-            // lo impide, la limpieza es defensiva).
-            \Illuminate\Support\Facades\DB::table('fingerprint_extra_templates')
-                ->where('client_id', $client->id)
-                ->delete();
+        // ── Guardar extras con quality individual ───────────────────────────────
+        \Illuminate\Support\Facades\DB::table('fingerprint_extra_templates')
+            ->where('client_id', $client->id)
+            ->delete();
 
-            $quality = $validated['quality'] ?? $deviceResponse['quality'] ?? null;
+        if (!empty($extraSamples)) {
             $extraRows = [];
-            foreach ($extraTemplates as $idx => $tpl) {
+            foreach ($extraSamples as $idx => $sample) {
                 $extraRows[] = [
                     'client_id'            => $client->id,
                     'fingerprint_id'       => $fingerprintId . '-e' . ($idx + 1),
-                    'fingerprint_template' => $tpl,
+                    'fingerprint_template' => $sample['template'],
                     'scan_index'           => $idx + 1,
-                    'quality'              => $quality,
+                    'quality'              => $sample['quality'],  // quality individual
                     'created_at'           => now(),
                     'updated_at'           => now(),
                 ];
@@ -429,15 +464,27 @@ class ClientController extends Controller
             \Illuminate\Support\Facades\DB::table('fingerprint_extra_templates')->insert($extraRows);
         }
 
+        \Illuminate\Support\Facades\Log::info('Fingerprint enrolled', [
+            'client_id'         => $client->id,
+            'fingerprint_id'    => $fingerprintId,
+            'samples_total'     => count($allTemplates),
+            'samples_valid'     => count($validSamples),
+            'primary_quality'   => $primarySample['quality'],
+            'extras_count'      => count($extraSamples),
+            'python_responded'  => !empty($deviceResponse['fingerprint_id']),
+        ]);
+
         return response()->json([
-            'message' => 'Huella digital registrada exitosamente',
-            'fingerprint_id' => $fingerprintId,
-            'registered_at' => $client->fingerprint_registered_at,
-            'quality' => $client->fingerprint_quality,
-            'device' => $deviceResponse['data'] ?? null,
-            'client' => $client,
+            'message'           => 'Huella digital registrada exitosamente',
+            'fingerprint_id'    => $fingerprintId,
+            'registered_at'     => $client->fingerprint_registered_at,
+            'primary_quality'   => $primarySample['quality'],
+            'extras_count'      => count($extraSamples),
+            'samples_used'      => count($validSamples),
+            'client'            => $client,
         ], 201);
     }
+
 
     /**
      * Remove (delete) a client's fingerprint.

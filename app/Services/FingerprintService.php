@@ -222,14 +222,13 @@ class FingerprintService
      * Llama al endpoint /api/fingerprint/identify del servidor Python,
      * que compara el template recibido contra todos los almacenados en SQLite.
      */
-    public function identifyFingerprint(string $fingerprintTemplate, float $threshold = 0.50): array
+    public function identifyFingerprint(string $fingerprintTemplate): array
     {
         try {
             /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::timeout(10)
                 ->post("{$this->baseUrl}/fingerprint/identify", [
                     'fingerprint_template' => $fingerprintTemplate,
-                    'threshold'            => $threshold,
                 ]);
 
             if ($response->successful()) {

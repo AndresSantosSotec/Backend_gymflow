@@ -121,12 +121,10 @@ class AccessLogController extends Controller
     {
         $validated = $request->validate([
             'fingerprint_template' => 'required|string',
-            'threshold'            => 'nullable|numeric|min:0.1|max:1.0',
         ]);
 
         $service   = new FingerprintService();
-        $threshold = (float) ($validated['threshold'] ?? 0.50);
-        $result    = $service->identifyFingerprint($validated['fingerprint_template'], $threshold);
+        $result    = $service->identifyFingerprint($validated['fingerprint_template']);
 
         if (!$result['success']) {
             // Python server not available — return graceful no-match (don't crash UI)
@@ -141,11 +139,32 @@ class AccessLogController extends Controller
         $data = $result['data'];
 
         if (!($data['match'] ?? false)) {
+            \Illuminate\Support\Facades\Log::info('Fingerprint identify attempt (no match)', [
+                'decision' => $data['status'] ?? 'reject',
+                'reason' => $data['decision_reason'] ?? null,
+                'best_score' => $data['best_score'] ?? null,
+                'second_best_score' => $data['second_best_score'] ?? null,
+                'gap' => $data['gap'] ?? null,
+                'quality_score' => $data['quality_score'] ?? null,
+                'blur_score' => $data['blur_score'] ?? null,
+                'is_second_scan' => $data['is_second_scan'] ?? false,
+                'candidate_id' => $data['candidate_id'] ?? null,
+            ]);
             return response()->json([
                 'match'         => false,
                 'client'        => null,
+                'status'        => $data['status'] ?? 'reject',
+                'decision_reason' => $data['decision_reason'] ?? null,
                 'similarity_pct' => $data['similarity_pct'] ?? 0,
-                'message'       => 'No se encontró coincidencia.',
+                'best_score'    => $data['best_score'] ?? null,
+                'second_best_score' => $data['second_best_score'] ?? null,
+                'gap'           => $data['gap'] ?? null,
+                'quality_score' => $data['quality_score'] ?? null,
+                'blur_score'    => $data['blur_score'] ?? null,
+                'confirm_window_sec' => $data['confirm_window_sec'] ?? null,
+                'candidate_name' => $data['candidate_name'] ?? null,
+                'candidate_id'   => $data['candidate_id'] ?? null,
+                'message'       => $data['message'] ?? 'No se encontró coincidencia.',
             ]);
         }
 
@@ -173,13 +192,31 @@ class AccessLogController extends Controller
             'fingerprint_id'      => $client->fingerprint_id,
             'access_time'         => now(),
             'status'              => $allowed ? 'allowed' : 'denied',
-            'notes'               => 'Acceso por huella digital (WebSDK — identificación 1:N)',
+            'notes'               => json_encode([
+                'flow' => 'identify_1n',
+                'decision' => $data['status'] ?? 'accept',
+                'reason' => $data['decision_reason'] ?? null,
+                'similarity_pct' => $data['similarity_pct'] ?? 0,
+                'best_score' => $data['best_score'] ?? null,
+                'second_best_score' => $data['second_best_score'] ?? null,
+                'gap' => $data['gap'] ?? null,
+                'quality_score' => $data['quality_score'] ?? null,
+                'blur_score' => $data['blur_score'] ?? null,
+                'is_second_scan' => $data['is_second_scan'] ?? false,
+            ], JSON_UNESCAPED_UNICODE),
         ]);
 
         return response()->json([
             'match'          => true,
+            'status'         => $data['status'] ?? 'accept',
+            'decision_reason' => $data['decision_reason'] ?? null,
             'allowed'        => $allowed,
             'similarity_pct' => $data['similarity_pct'] ?? 0,
+            'best_score'     => $data['best_score'] ?? null,
+            'second_best_score' => $data['second_best_score'] ?? null,
+            'gap'            => $data['gap'] ?? null,
+            'quality_score'  => $data['quality_score'] ?? null,
+            'blur_score'     => $data['blur_score'] ?? null,
             'client'         => $client,
             'message'        => $allowed
                 ? "¡Bienvenido/a {$client->first_name}!"
