@@ -362,11 +362,22 @@ class ClientController extends Controller
     {
         $client = Client::findOrFail($id);
 
-        // Protección: no registrar si ya tiene huella (debe eliminar primero)
+        // Si ya tiene huella, eliminarla automáticamente antes de re-registrar
         if ($client->fingerprint_id) {
-            return response()->json([
-                'message' => 'Este cliente ya tiene una huella digital registrada. Elimínela primero.',
-            ], 422);
+            \Log::info("Auto-removing existing fingerprint for client {$id} before re-registration", [
+                'old_fingerprint_id' => $client->fingerprint_id,
+            ]);
+            $fingerprintService = new FingerprintService();
+            try {
+                $fingerprintService->deleteFingerprintFromDevice($client->fingerprint_id);
+            } catch (\Exception $e) {
+                \Log::warning("Could not delete old fingerprint from device: {$e->getMessage()}");
+            }
+            \Illuminate\Support\Facades\DB::table('fingerprint_extra_templates')
+                ->where('client_id', $client->id)
+                ->delete();
+            $client->removeFingerprint();
+            $client->refresh();
         }
 
         $minEnrollmentSamples = (int) config('services.fingerprint.min_enrollment_samples', 6);
