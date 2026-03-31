@@ -48,7 +48,8 @@ return [
         'enabled'   => env('FINGERPRINT_ENABLED', true),
         'timeout'   => env('FINGERPRINT_TIMEOUT', 15),
         'min_enrollment_quality' => env('FINGERPRINT_MIN_ENROLLMENT_QUALITY', 50),
-        'min_enrollment_samples' => env('FINGERPRINT_MIN_ENROLLMENT_SAMPLES', 3),
+        // Obligatorio: 6 muestras (1 principal + 5 extras) con enrollment guiado v2
+        'min_enrollment_samples' => env('FINGERPRINT_MIN_ENROLLMENT_SAMPLES', 6),
     ],
 
 ];

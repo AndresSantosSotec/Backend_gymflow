@@ -30,6 +30,9 @@ class Client extends Model
         'fingerprint_device_id',
         'fingerprint_quality',
         'fingerprint_registered_at',
+        'fingerprint_enrollment_version',
+        'fingerprint_sample_count',
+        'fingerprint_legacy_enrollment',
         'status',
         'notes',
         'emergency_contact_name',
@@ -46,6 +49,9 @@ class Client extends Model
         'weight_kg' => 'decimal:2',
         'height_cm' => 'decimal:2',
         'fingerprint_quality' => 'integer',
+        'fingerprint_enrollment_version' => 'integer',
+        'fingerprint_sample_count' => 'integer',
+        'fingerprint_legacy_enrollment' => 'boolean',
     ];
 
     protected $appends = [
@@ -163,7 +169,10 @@ class Client extends Model
         string $fingerprintId,
         ?string $template = null,
         ?string $deviceId = null,
-        ?int $quality = null
+        ?int $quality = null,
+        int $enrollmentVersion = 2,
+        ?int $sampleCount = null,
+        bool $legacyEnrollment = false,
     ): self {
         $this->update([
             'fingerprint_id' => $fingerprintId,
@@ -171,6 +180,9 @@ class Client extends Model
             'fingerprint_device_id' => $deviceId,
             'fingerprint_quality' => $quality,
             'fingerprint_registered_at' => now(),
+            'fingerprint_enrollment_version' => $enrollmentVersion,
+            'fingerprint_sample_count' => $sampleCount,
+            'fingerprint_legacy_enrollment' => $legacyEnrollment,
         ]);
 
         return $this;
@@ -187,6 +199,9 @@ class Client extends Model
             'fingerprint_device_id' => null,
             'fingerprint_quality' => null,
             'fingerprint_registered_at' => null,
+            'fingerprint_enrollment_version' => 1,
+            'fingerprint_sample_count' => null,
+            'fingerprint_legacy_enrollment' => false,
         ]);
 
         return $this;
