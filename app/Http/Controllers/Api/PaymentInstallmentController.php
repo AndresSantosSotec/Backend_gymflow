@@ -27,7 +27,13 @@ class PaymentInstallmentController extends Controller
         }
 
         if ($request->has('status')) {
-            $query->where('status', $request->status);
+            $status = $request->status;
+            // 'pending' includes partial payments
+            if ($status === 'pending') {
+                $query->whereIn('status', ['pending', 'partial']);
+            } else {
+                $query->where('status', $status);
+            }
         }
 
         // Filter overdue
@@ -43,7 +49,15 @@ class PaymentInstallmentController extends Controller
                 ->where('due_date', '<=', now()->addDays(7)->endOfDay());
         }
 
-        $installments = $query->orderBy('due_date', 'asc')->get();
+        $perPage = min((int) $request->input('per_page', 50), 200);
+
+        // If a specific client or membership is requested, skip pagination
+        if ($request->has('client_id') || $request->has('membership_id')) {
+            $installments = $query->orderBy('due_date', 'asc')->get();
+            return response()->json($installments);
+        }
+
+        $installments = $query->orderBy('due_date', 'asc')->paginate($perPage);
 
         return response()->json($installments);
     }
