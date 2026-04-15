@@ -49,7 +49,7 @@ class PaymentInstallmentController extends Controller
                 ->where('due_date', '<=', now()->addDays(7)->endOfDay());
         }
 
-        $perPage = min((int) $request->input('per_page', 50), 200);
+        $perPage = min((int) $request->input('per_page', 50), 100);
 
         // If a specific client or membership is requested, skip pagination
         if ($request->has('client_id') || $request->has('membership_id')) {
@@ -59,7 +59,13 @@ class PaymentInstallmentController extends Controller
 
         $installments = $query->orderBy('due_date', 'asc')->paginate($perPage);
 
-        return response()->json($installments);
+        return response()->json([
+            'data' => $installments->items(),
+            'total' => $installments->total(),
+            'per_page' => $installments->perPage(),
+            'current_page' => $installments->currentPage(),
+            'last_page' => $installments->lastPage(),
+        ]);
     }
 
     /**

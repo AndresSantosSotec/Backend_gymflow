@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 class MembershipController extends Controller
 {
     /**
@@ -67,8 +68,23 @@ class MembershipController extends Controller
         $startDate = Carbon::now();
         $endDate = $startDate->copy()->addDays($plan->duration_days);
 
+        // Procesar documento de transferencia (base64) si existe
+        $documentUrl = null;
+        if ($request->filled('document_base64')) {
+            $base64 = $request->document_base64;
+            if (preg_match('/^data:(image\/\w+|application\/pdf);base64,/', $base64, $type)) {
+                $data = substr($base64, strpos($base64, ',') + 1);
+                $mime = strtolower($type[1]);
+                $extension = str_replace('jpeg', 'jpg', explode('/', $mime)[1]);
+                $decoded = base64_decode($data);
+                $fileName = 'payments/docs/' . uniqid() . '.' . $extension;
+                Storage::disk('public')->put($fileName, $decoded);
+                $documentUrl = $fileName;
+            }
+        }
+
         // Todo debe ejecutarse de forma atómica. Si algo falla (ej. base de datos), se deshace.
-        return DB::transaction(function () use ($validated, $client, $plan, $inscriptionFee, $paymentType, $numInstallments, $totalAmount, $startDate, $endDate, $request) {
+        return DB::transaction(function () use ($validated, $client, $plan, $inscriptionFee, $paymentType, $numInstallments, $totalAmount, $startDate, $endDate, $request, $documentUrl) {
             // 1. Asignar membresía al cliente (relación principal)
             $membership = Membership::create([
                 'client_id' => $client->id,
@@ -93,6 +109,7 @@ class MembershipController extends Controller
                     'payment_method' => strtolower($validated['payment_method']),
                     'status' => 'completed',
                     'transaction_id' => $request->input('reference'),
+                    'document_url' => $documentUrl,
                     'paid_at' => now(),
                 ]);
 
@@ -157,6 +174,7 @@ class MembershipController extends Controller
                         'payment_method' => strtolower($validated['payment_method']),
                         'status' => 'completed',
                         'transaction_id' => $request->input('reference'),
+                        'document_url' => $documentUrl,
                         'notes' => 'Enganche / Pago inicial / Inscripción',
                         'paid_at' => now(),
                     ]);
