@@ -68,7 +68,8 @@ class PaymentController extends Controller
             });
         }
 
-        $payments = $query->orderBy('created_at', 'desc')->paginate($request->per_page ?? 15);
+        $perPage = min((int) ($request->per_page ?? 15), 500);
+        $payments = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json($payments);
     }
@@ -213,9 +214,11 @@ class PaymentController extends Controller
             });
         }
 
+        $stats = $query->selectRaw('SUM(amount) as total_revenue, COUNT(*) as count')->first();
+
         return response()->json([
-            'total_revenue' => round((float) $query->sum('amount'), 2),
-            'count' => $query->count(),
+            'total_revenue' => round((float) ($stats->total_revenue ?? 0), 2),
+            'count' => (int) ($stats->count ?? 0),
         ]);
     }
 

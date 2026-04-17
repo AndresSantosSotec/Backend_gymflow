@@ -38,7 +38,10 @@ class SaleController extends Controller
             $query->where('estado', $request->estado);
         }
 
-        return response()->json($query->latest()->get());
+        // Limit to prevent memory exhaustion on large datasets
+        $limit = min((int) ($request->input('limit', 500)), 500);
+
+        return response()->json($query->latest()->limit($limit)->get());
     }
 
     /**
@@ -116,6 +119,7 @@ class SaleController extends Controller
                             'monto' => $pago['monto'],
                             'document_url' => $documentUrl,
                         ]);
+                    }
                 }
 
                 if ($venta->estado !== 'COTIZACION') {
