@@ -86,6 +86,7 @@ Route::post('/webhooks/recurrente', [RecurrenteWebhookController::class, 'handle
 
 // Checkout público (auto-registro + pago — sin autenticación)
 Route::post('/public/checkout', [RecurrenteController::class, 'publicCheckout']);
+Route::post('/public/quick-pay', [RecurrenteController::class, 'createQuickPayCheckout']);
 
 // Productos de Inscripción públicos (sin autenticación)
 Route::get('/public/registration-products', [RegistrationProductController::class, 'publicProducts']);
@@ -103,6 +104,12 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:PLANS_VIEW,PLANS_MANAGE');
     Route::apiResource('memberships', MembershipController::class)
         ->middleware('permission:MEMBERSHIPS_VIEW,MEMBERSHIPS_MANAGE');
+    Route::get('payments/revenue', [PaymentController::class, 'revenue'])->middleware('permission:PAYMENTS_VIEW');
+    Route::get('payments/client/{clientId}', [PaymentController::class, 'byClient'])->middleware('permission:PAYMENTS_VIEW');
+    Route::get('payments/corte-caja', [PaymentController::class, 'corteCaja'])->middleware('permission:PAYMENTS_VIEW');
+    Route::get('payments/corte-caja/pdf', [PaymentController::class, 'corteCajaPdf'])->middleware('permission:PAYMENTS_VIEW');
+    Route::get('payments/corte-caja/excel', [PaymentController::class, 'corteCajaExcel'])->middleware('permission:PAYMENTS_VIEW');
+    Route::patch('payments/{id}/status', [PaymentController::class, 'updateStatus'])->middleware('permission:PAYMENTS_MANAGE');
     Route::apiResource('payments', PaymentController::class)
         ->middleware('permission:PAYMENTS_VIEW,PAYMENTS_MANAGE');
     Route::apiResource('access-logs', AccessLogController::class)
@@ -139,6 +146,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/checkout', [RecurrenteController::class, 'createCheckout']);
         Route::post('/checkout-productos', [RecurrenteController::class, 'createCheckoutWithProductos']);
         Route::post('/charge-card', [RecurrenteController::class, 'chargeCard']);
+        Route::post('/quick-pay', [RecurrenteController::class, 'createQuickPayCheckout']);
         Route::post('/subscriptions', [RecurrenteController::class, 'createSubscription']);
         Route::delete('/subscriptions/{id}', [RecurrenteController::class, 'cancelSubscription']);
         Route::get('/payments/history/{clientId}', [RecurrenteController::class, 'paymentHistory']);
@@ -195,22 +203,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Memberships special routes
     Route::post('/memberships/assign', [MembershipController::class, 'assign'])
         ->middleware('permission:MEMBERSHIPS_MANAGE');
-
-    // Payments special routes
-    Route::get('/payments/client/{clientId}', [PaymentController::class, 'byClient'])
-        ->middleware('permission:PAYMENTS_VIEW');
-    Route::get('/payments/revenue', [PaymentController::class, 'revenue'])
-        ->middleware('permission:PAYMENTS_VIEW');
-    Route::get('/payments/revenue/stats', [PaymentController::class, 'revenue'])
-        ->middleware('permission:PAYMENTS_VIEW');
-    Route::get('/payments/corte-caja', [PaymentController::class, 'corteCaja'])
-        ->middleware('permission:PAYMENTS_VIEW');
-    Route::get('/payments/corte-caja/pdf', [PaymentController::class, 'corteCajaPdf'])
-        ->middleware('permission:PAYMENTS_VIEW');
-    Route::get('/payments/corte-caja/excel', [PaymentController::class, 'corteCajaExcel'])
-        ->middleware('permission:PAYMENTS_VIEW');
-    Route::patch('/payments/{id}/status', [PaymentController::class, 'updateStatus'])
-        ->middleware('permission:PAYMENTS_MANAGE');
 
     // Payment Installments (Cuotas)
     Route::prefix('installments')->middleware('permission:PAYMENTS_VIEW,PAYMENTS_MANAGE')->group(function () {
@@ -281,6 +273,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:SALES_VIEW');
     Route::get('ventas/corte-caja/excel', [SaleController::class, 'corteCajaExcel'])
         ->middleware('permission:SALES_VIEW');
+    Route::post('ventas/pago/{id}/document', [SaleController::class, 'uploadDocument'])
+        ->middleware('permission:SALES_VIEW,SALES_CREATE');
     Route::apiResource('ventas', SaleController::class)
         ->middleware('permission:SALES_VIEW,SALES_CREATE');
     Route::apiResource('clientes-ventas', ClientVentaController::class)

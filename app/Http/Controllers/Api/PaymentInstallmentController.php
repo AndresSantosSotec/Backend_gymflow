@@ -90,7 +90,7 @@ class PaymentInstallmentController extends Controller
 
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0.01',
-            'payment_method' => 'required|in:cash,card,transfer,stripe',
+            'payment_method' => 'required|in:cash,card,transfer,stripe,recurrente',
             'reference' => 'nullable|string',
             'notes' => 'nullable|string',
             'document_base64' => 'nullable|string',

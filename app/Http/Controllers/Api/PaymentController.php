@@ -82,17 +82,34 @@ class PaymentController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'membership_id' => 'nullable|exists:memberships,id',
             'amount' => 'required|numeric|min:0',
-            'payment_method' => 'required|in:cash,card,transfer,stripe',
+            'payment_method' => 'required|in:cash,card,transfer,stripe,recurrente',
             'status' => 'required|in:pending,completed,failed,refunded',
             'transaction_id' => 'nullable|string',
             'notes' => 'nullable|string',
+            'document_base64' => 'nullable|string',
         ]);
+
+        $documentUrl = null;
+        if ($request->filled('document_base64')) {
+            $base64 = $request->document_base64;
+            if (preg_match('/^data:(image\/\w+|application\/pdf);base64,/', $base64, $type)) {
+                $data = substr($base64, strpos($base64, ',') + 1);
+                $mime = strtolower($type[1]);
+                $extension = explode('/', $mime)[1];
+                $data = base64_decode($data);
+                $fileName = 'payments/docs/' . uniqid() . '.' . $extension;
+                \Illuminate\Support\Facades\Storage::disk('public')->put($fileName, $data);
+                $documentUrl = $fileName;
+            }
+        }
 
         if ($validated['status'] === 'completed') {
             $validated['paid_at'] = now();
         }
 
-        $payment = Payment::create($validated);
+        $payment = Payment::create(array_merge($validated, [
+            'document_url' => $documentUrl,
+        ]));
 
         // Auto-generate receipt
         try {

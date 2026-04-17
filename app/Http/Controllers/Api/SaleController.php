@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
@@ -53,6 +55,7 @@ class SaleController extends Controller
             'pagos' => 'nullable|array',
             'pagos.*.metodo_pago_id' => 'required|exists:metodo_pagos,id',
             'pagos.*.monto' => 'required|numeric|min:0',
+            'pagos.*.document_base64' => 'nullable|string',
         ]);
 
         try {
@@ -102,12 +105,17 @@ class SaleController extends Controller
 
                 if (isset($validated['pagos']) && $venta->estado !== 'COTIZACION') {
                     foreach ($validated['pagos'] as $pago) {
+                        $documentUrl = null;
+                        if (!empty($pago['document_base64'])) {
+                            $documentUrl = $this->uploadBase64File($pago['document_base64'], 'payments/sales');
+                        }
+
                         PagoVenta::create([
                             'venta_id' => $venta->id,
                             'metodo_pago_id' => $pago['metodo_pago_id'],
                             'monto' => $pago['monto'],
+                            'document_url' => $documentUrl,
                         ]);
-                    }
                 }
 
                 if ($venta->estado !== 'COTIZACION') {
@@ -167,10 +175,16 @@ class SaleController extends Controller
                     // Registrar pagos si vienen en la petición
                     if ($request->has('pagos')) {
                         foreach ($request->pagos as $pago) {
+                            $documentUrl = null;
+                            if (!empty($pago['document_base64'])) {
+                                $documentUrl = $this->uploadBase64File($pago['document_base64'], 'payments/sales');
+                            }
+
                             PagoVenta::create([
                                 'venta_id' => $venta->id,
                                 'metodo_pago_id' => $pago['metodo_pago_id'],
                                 'monto' => $pago['monto'],
+                                'document_url' => $documentUrl,
                             ]);
                         }
                     }
@@ -194,6 +208,40 @@ class SaleController extends Controller
         }
 
         return response()->json($venta->load(['cliente', 'detalles.producto', 'pagos.metodoPago', 'receipt']));
+    }
+
+    /**
+     * Endpoint para cargar un comprobante a un pago ya realizado
+     */
+    public function uploadDocument(Request $request, $pagoId)
+    {
+        $pago = PagoVenta::findOrFail($pagoId);
+        
+        $request->validate([
+            'document_base64' => 'required|string',
+        ]);
+
+        $documentUrl = $this->uploadBase64File($request->document_base64, 'payments/sales');
+        $pago->update(['document_url' => $documentUrl]);
+
+        return response()->json([
+            'message' => 'Comprobante cargado exitosamente',
+            'document_url' => $documentUrl
+        ]);
+    }
+
+    private function uploadBase64File(string $base64, string $folder): ?string
+    {
+        if (preg_match('/^data:(image\/\w+|application\/pdf);base64,/', $base64, $type)) {
+            $data = substr($base64, strpos($base64, ',') + 1);
+            $mime = strtolower($type[1]);
+            $extension = str_replace('jpeg', 'jpg', explode('/', $mime)[1]);
+            $decoded = base64_decode($data);
+            $fileName = $folder . '/' . uniqid() . '.' . $extension;
+            Storage::disk('public')->put($fileName, $decoded);
+            return $fileName;
+        }
+        return null;
     }
 
     private function querySalesForCashCut(Request $request): Builder

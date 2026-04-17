@@ -17,7 +17,11 @@ class ProductController extends Controller
      */
     public function index()
     {
-        return response()->json(Producto::with(['marca', 'presentacion'])->get());
+        $products = Producto::with(['marca', 'presentacion'])
+            ->withSum('detalles as ventas_count', 'cantidad')
+            ->get();
+            
+        return response()->json($products);
     }
 
     /**
@@ -27,6 +31,7 @@ class ProductController extends Controller
     {
         // Only show products with stock > 0
         $products = Producto::with(['marca', 'presentacion'])
+            ->withSum('detalles as ventas_count', 'cantidad')
             ->where('stock', '>', 0)
             ->get()
             ->makeHidden(['precio_compra', 'created_at', 'updated_at']);

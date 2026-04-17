@@ -549,4 +549,53 @@ class RecurrenteController extends Controller
             ]);
         });
     }
+
+    /**
+     * Crear un link de pago rápido para montos arbitrarios (POS).
+     * Crea un producto temporal en Recurrente y devuelve el link de checkout.
+     */
+    public function createQuickPayCheckout(Request $request)
+    {
+        $data = $request->validate([
+            'name'    => 'required|string|max:255',
+            'email'   => 'required|email|max:255',
+            'amount'  => 'required|numeric|min:1',
+            'concept' => 'nullable|string|max:255',
+        ]);
+
+        try {
+            // 1. Crear producto temporal en Recurrente
+            $prodRes = $this->recurrente->createOneTimeProduct([
+                'product' => [
+                    'name' => $data['concept'] ?? 'Venta POS',
+                    'prices_attributes' => [[
+                        'currency' => 'GTQ',
+                        'charge_type' => 'one_time',
+                        'amount_in_cents' => RecurrenteService::toCents((float) $data['amount'])
+                    ]],
+                    'description' => 'Pago de productos/servicios en punto de venta'
+                ]
+            ]);
+
+            $productId = $prodRes['id'];
+
+            // 2. Crear checkout
+            $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+            $checkout = $this->recurrente->createCheckout([
+                'items' => [[
+                    'product_id' => $productId,
+                    'quantity' => 1
+                ]],
+                'success_url' => "{$frontendUrl}/admin/commercial/sales",
+                'cancel_url'  => "{$frontendUrl}/admin/commercial/sales",
+            ]);
+
+            return response()->json([
+                'checkout_url' => $checkout['checkout_url'] ?? $checkout['url'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('[Recurrente] Error en createQuickPayCheckout: ' . $e->getMessage());
+            return response()->json(['error' => 'No se pudo generar el link de pago: ' . $e->getMessage()], 500);
+        }
+    }
 }
