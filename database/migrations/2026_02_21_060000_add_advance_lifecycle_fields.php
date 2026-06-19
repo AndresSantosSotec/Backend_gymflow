@@ -71,18 +71,20 @@ return new class extends Migration
 
         // Extend the status enum — MySQL requires MODIFY COLUMN with full definition
         // We use DB::statement to avoid enum re-definition issues with blueprint
-        DB::statement("
-            ALTER TABLE memberships
-            MODIFY COLUMN status ENUM(
-                'active',
-                'advance_active',
-                'advance_expiring',
-                'at_risk',
-                'paused',
-                'expired',
-                'cancelled'
-            ) NOT NULL DEFAULT 'active'
-        ");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("
+                ALTER TABLE memberships
+                MODIFY COLUMN status ENUM(
+                    'active',
+                    'advance_active',
+                    'advance_expiring',
+                    'at_risk',
+                    'paused',
+                    'expired',
+                    'cancelled'
+                ) NOT NULL DEFAULT 'active'
+            ");
+        }
 
         // ── 2. Tabla de pausas ────────────────────────────────────────
         Schema::create('membership_pauses', function (Blueprint $table) {
@@ -160,11 +162,13 @@ return new class extends Migration
         Schema::dropIfExists('membership_pauses');
 
         // Restaurar status enum original
-        DB::statement("
-            ALTER TABLE memberships
-            MODIFY COLUMN status ENUM('active','expired','cancelled')
-            NOT NULL DEFAULT 'active'
-        ");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("
+                ALTER TABLE memberships
+                MODIFY COLUMN status ENUM('active','expired','cancelled')
+                NOT NULL DEFAULT 'active'
+            ");
+        }
 
         Schema::table('memberships', function (Blueprint $table) {
             $table->dropIndex('idx_advance_renewal');

@@ -14,6 +14,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            return;
+        }
+
         Schema::table('clients', function (Blueprint $table) {
             // Drop unique constraints that can cause duplicate entry errors
             $table->dropUnique('clients_dni_unique');

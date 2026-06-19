@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Receipt;
+use App\Services\FelPaymentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -88,6 +89,7 @@ class PaymentController extends Controller
             'transaction_id' => 'nullable|string',
             'notes' => 'nullable|string',
             'document_base64' => 'nullable|string',
+            'issue_fel' => 'nullable|boolean',
         ]);
 
         $documentUrl = null;
@@ -113,13 +115,28 @@ class PaymentController extends Controller
         ]));
 
         // Auto-generate receipt
+        $receipt = null;
+        $felResult = null;
         try {
-            Receipt::createFromPaymentAuto($payment, 'individual_payment');
+            $receipt = Receipt::createFromPaymentAuto($payment, 'individual_payment');
         } catch (\Exception $e) {
             //\Log::warning('Auto-receipt generation failed for payment #' . $payment->id . ': ' . $e->getMessage());
         }
 
-        return response()->json($payment->load(['client', 'membership']), 201);
+        if ($validated['status'] === 'completed') {
+            $issueFel = $request->has('issue_fel') ? $request->boolean('issue_fel') : null;
+            try {
+                $felResult = app(FelPaymentService::class)->processAfterPayment($payment, $issueFel);
+            } catch (\Exception $e) {
+                $felResult = ['success' => false, 'fel_status' => 'failed', 'error' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            ...$payment->load(['client', 'membership'])->toArray(),
+            'receipt' => $receipt?->fresh(),
+            'fel' => $felResult,
+        ], 201);
     }
 
     /**

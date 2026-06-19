@@ -7,6 +7,8 @@ use App\Models\Receipt;
 use App\Models\Payment;
 use App\Models\Client;
 use App\Services\ReceiptPdfService;
+use App\Services\FelPaymentService;
+use App\Services\ElectronicBillingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
@@ -179,14 +181,25 @@ class ReceiptController extends Controller
 
         $validated = $request->validate([
             'invoice_notes' => 'nullable|string',
+            'certify_fel' => 'nullable|boolean',
         ]);
 
         $receipt->markAsInvoiced($validated['invoice_notes'] ?? null);
 
+        $felResult = null;
+        if ($request->boolean('certify_fel', config('billing.corpo_fel.enabled', false))) {
+            try {
+                $felResult = app(FelPaymentService::class)->certifyReceipt($receipt);
+            } catch (\Exception $e) {
+                $felResult = ['success' => false, 'error' => $e->getMessage()];
+            }
+        }
+
         return response()->json([
             'message' => 'Invoice created successfully',
-            'receipt' => $receipt,
-            'invoice_number' => $receipt->invoice_number
+            'receipt' => $receipt->fresh(),
+            'invoice_number' => $receipt->invoice_number,
+            'fel' => $felResult,
         ]);
     }
 

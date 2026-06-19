@@ -112,24 +112,43 @@ class Receipt extends Model
     }
 
     /**
-     * Generar número de factura automático
+     * Generar número de factura automático (único, incluye borrados y evita carreras).
      */
     public static function generateInvoiceNumber()
     {
-        $prefix = 'INV-' . date('Y');
-        $lastInvoice = self::where('invoice_number', 'like', $prefix . '%')
-            ->whereNotNull('invoice_number')
-            ->orderBy('id', 'desc')
-            ->first();
+        $prefix = 'INV-' . date('Y') . '-';
+        $maxAttempts = 10;
 
-        if ($lastInvoice) {
-            $lastNumber = (int) substr($lastInvoice->invoice_number, -6);
-            $newNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
-        } else {
-            $newNumber = '000001';
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            try {
+                return \Illuminate\Support\Facades\DB::transaction(function () use ($prefix) {
+                    $maxSeq = self::withTrashed()
+                        ->where('invoice_number', 'like', $prefix . '%')
+                        ->lockForUpdate()
+                        ->get(['invoice_number'])
+                        ->map(fn ($r) => preg_match('/-(\d+)$/', (string) $r->invoice_number, $m) ? (int) $m[1] : 0)
+                        ->max() ?? 0;
+
+                    $newNumber = str_pad($maxSeq + 1, 6, '0', STR_PAD_LEFT);
+
+                    $invoiceNumber = $prefix . $newNumber;
+
+                    $exists = self::withTrashed()
+                        ->where('invoice_number', $invoiceNumber)
+                        ->exists();
+
+                    if ($exists) {
+                        throw new \Exception("Invoice number {$invoiceNumber} already exists");
+                    }
+
+                    return $invoiceNumber;
+                });
+            } catch (\Exception $e) {
+                if ($attempt === $maxAttempts - 1) {
+                    throw $e;
+                }
+            }
         }
-
-        return $prefix . '-' . $newNumber;
     }
 
     /**
@@ -139,9 +158,9 @@ class Receipt extends Model
     {
         $this->update([
             'is_invoiced' => true,
-            'invoiced_at' => now(),
-            'invoice_number' => self::generateInvoiceNumber(),
-            'invoice_notes' => $notes,
+            'invoiced_at' => $this->invoiced_at ?? now(),
+            'invoice_number' => $this->invoice_number ?: self::generateInvoiceNumber(),
+            'invoice_notes' => $notes ?? $this->invoice_notes,
         ]);
 
         return $this;

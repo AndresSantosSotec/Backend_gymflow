@@ -2,10 +2,10 @@
 
 return [
     // Proveedor de facturación electrónica
-    // Opciones: 'local', 'facturama', 'sat'
+    // Opciones: 'local', 'facturama', 'sat', 'corpo_fel'
     'provider' => env('BILLING_PROVIDER', 'local'),
 
-    // URL de la API del proveedor
+    // URL de la API del proveedor (legacy)
     'api_url' => env('BILLING_API_URL', ''),
 
     // Clave API
@@ -13,6 +13,32 @@ return [
 
     // Secret API
     'api_secret' => env('BILLING_API_SECRET', ''),
+
+    // Corpo Sistemas FEL (Guatemala)
+    'corpo_fel' => [
+        'enabled' => env('CORPO_FEL_ENABLED', false),
+        'use_test' => env('CORPO_FEL_USE_TEST', true),
+        'base_url' => env('CORPO_FEL_BASE_URL', 'https://app.corposistemasgt.com/webservicefront/factwsfront.asmx'),
+        'base_url_test' => env('CORPO_FEL_BASE_URL_TEST', 'https://app.corposistemasgt.com/webservicefronttest/factwsfront.asmx'),
+        'nit_url' => env('CORPO_FEL_NIT_URL', 'https://app.corposistemasgt.com/webapi/GetNIT'),
+        'requestor' => env('CORPO_FEL_REQUESTOR', ''),
+        'entity_nit' => env('CORPO_FEL_ENTITY_NIT', ''),
+        'country' => env('CORPO_FEL_COUNTRY', 'GT'),
+        // Datos del emisor (licencia del gimnasio — configurar con datos reales en producción)
+        'emisor_nombre' => env('CORPO_FEL_EMISOR_NOMBRE', ''),
+        'emisor_nombre_comercial' => env('CORPO_FEL_EMISOR_NOMBRE_COMERCIAL', ''),
+        'emisor_direccion' => env('CORPO_FEL_EMISOR_DIRECCION', ''),
+        'emisor_codigo_postal' => env('CORPO_FEL_EMISOR_CP', '01001'),
+        'emisor_municipio' => env('CORPO_FEL_EMISOR_MUNICIPIO', 'GUATEMALA'),
+        'emisor_departamento' => env('CORPO_FEL_EMISOR_DEPARTAMENTO', 'GUATEMALA'),
+        'codigo_establecimiento' => env('CORPO_FEL_CODIGO_ESTABLECIMIENTO', '1'),
+        'afiliacion_iva' => env('CORPO_FEL_AFILIACION_IVA', 'GEN'),
+        'frase_tipo' => env('CORPO_FEL_FRASE_TIPO', '1'),
+        'frase_escenario' => env('CORPO_FEL_FRASE_ESCENARIO', '2'),
+        // Efectivo: no certificar por defecto. Tarjeta/transferencia: sí.
+        'auto_certify_cash' => env('CORPO_FEL_AUTO_CERTIFY_CASH', false),
+        'auto_certify_non_cash' => env('CORPO_FEL_AUTO_CERTIFY_NON_CASH', true),
+    ],
 
     // Configuración de PDF
     'pdf' => [

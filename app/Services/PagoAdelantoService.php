@@ -580,6 +580,14 @@ class PagoAdelantoService
 
     private function evaluarAccionRecurrente(Client $client, ?PaymentInstallment $proximaCuota): string
     {
+        Log::info("DEBUG evaluarAccionRecurrente", [
+            'client_id' => $client->id,
+            'recurrente_user_id' => $client->recurrente_user_id,
+            'proximaCuota_id' => $proximaCuota?->id,
+            'hasSub_query' => RecurrenteSubscription::where('client_id', $client->id)->where('status', 'active')->exists(),
+            'allSubs' => RecurrenteSubscription::where('client_id', $client->id)->get()->toArray()
+        ]);
+
         if (! $client->recurrente_user_id) return 'none';
 
         $hasSub = RecurrenteSubscription::where('client_id', $client->id)

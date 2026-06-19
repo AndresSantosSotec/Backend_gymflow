@@ -52,7 +52,7 @@ class PagoAdelantoController extends Controller
             'client_id'                 => 'required|exists:clients,id',
             'installment_ids'           => 'required|array|min:1',
             'installment_ids.*'         => 'integer|exists:payment_installments,id',
-            'payment_method'            => 'required|in:efectivo,transferencia,combinado',
+            'payment_method'            => 'required|in:efectivo,transferencia,combinado,tarjeta',
             'total_amount'              => 'required|numeric|min:0.01',
             'transfer_reference'        => 'nullable|string|max:100',
             'notas'                     => 'nullable|string|max:500',
@@ -89,7 +89,7 @@ class PagoAdelantoController extends Controller
 
         if (! empty($yaPagadas)) {
             return response()->json([
-                'error'            => 'Las siguientes cuotas ya están pagadas: #' . implode(', #', $yaPagadas),
+                'error'            => 'Las siguientes cuotas ya están pagadas: ' . implode(', ', $yaPagadas),
                 'cuotas_ya_pagas' => $yaPagadas,
             ], 422);
         }

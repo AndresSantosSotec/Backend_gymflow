@@ -51,10 +51,11 @@ class ReactivarSuscripcionesTest extends TestCase
         // Setup datos base
         $this->plan = MembershipPlan::create([
             'name'                  => 'Plan Premium',
+            'slug'                  => 'plan-premium',
             'price'                 => 300.00,
             'duration_days'         => 30,
             'recurrente_product_id' => 'prod_test_123',
-            'is_active'             => true,
+            'published'             => true,
         ]);
 
         $this->client = Client::create([
@@ -82,9 +83,6 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->membership = Membership::create([
             'client_id'        => $this->client->id,
             'plan_id'          => $this->plan->id,
-            'name'             => 'Plan Premium',
-            'price'            => 300.00,
-            'duration_days'    => 30,
             'start_date'       => today()->subMonths(5),
             'end_date'         => today()->addDays(1),
             'status'           => Membership::STATUS_ADVANCE_EXPIRING,
@@ -128,7 +126,7 @@ class ReactivarSuscripcionesTest extends TestCase
         ]);
 
         // Verificar email enviado al cliente
-        Mail::assertSent(fn ($mail) => $mail->hasTo('juan@test.com'));
+        Mail::assertSent(fn (\Illuminate\Mail\Mailable $mail) => $mail->hasTo('juan@test.com'));
     }
 
     /**
@@ -142,9 +140,6 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->membership = Membership::create([
             'client_id'          => $this->client->id,
             'plan_id'            => $this->plan->id,
-            'name'               => 'Plan Premium',
-            'price'              => 300.00,
-            'duration_days'      => 30,
             'start_date'         => today()->subMonths(5),
             'end_date'           => today()->addDays(1),
             'status'             => Membership::STATUS_ADVANCE_ACTIVE,
@@ -174,9 +169,6 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->membership = Membership::create([
             'client_id'          => $this->client->id,
             'plan_id'            => $this->plan->id,
-            'name'               => 'Plan Premium',
-            'price'              => 300.00,
-            'duration_days'      => 30,
             'start_date'         => today()->subMonths(5),
             'end_date'           => today()->addDays(1),
             'status'             => Membership::STATUS_CANCELLED,  // ← Ya cancelada
@@ -206,9 +198,6 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->membership = Membership::create([
             'client_id'          => $this->client->id,
             'plan_id'            => $this->plan->id,
-            'name'               => 'Plan Premium',
-            'price'              => 300.00,
-            'duration_days'      => 30,
             'start_date'         => today()->subMonths(5),
             'end_date'           => today()->addDays(1),
             'status'             => Membership::STATUS_ADVANCE_EXPIRING,
@@ -253,9 +242,6 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->membership = Membership::create([
             'client_id'          => $this->client->id,
             'plan_id'            => $this->plan->id,
-            'name'               => 'Plan Premium',
-            'price'              => 300.00,
-            'duration_days'      => 30,
             'start_date'         => today()->subMonths(5),
             'end_date'           => today()->addDays(1),
             'status'             => Membership::STATUS_ADVANCE_EXPIRING,
@@ -305,9 +291,6 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->membership = Membership::create([
             'client_id'          => $this->client->id,
             'plan_id'            => $this->plan->id,
-            'name'               => 'Plan Premium',
-            'price'              => 300.00,
-            'duration_days'      => 30,
             'start_date'         => today()->subMonths(4),
             'end_date'           => today()->addMonths(1),
             'status'             => Membership::STATUS_ADVANCE_ACTIVE,
@@ -320,8 +303,7 @@ class ReactivarSuscripcionesTest extends TestCase
 
         $this->adelantoMock
             ->shouldReceive('writeAuditLog')
-            ->once()
-            ->with(\Mockery::on(fn ($args) => true));
+            ->once();
 
         // NO debe crear suscripción (aún no vence)
         $this->recurrenteMock->shouldNotReceive('createSubscription');
@@ -332,7 +314,7 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->assertEquals(Membership::STATUS_ADVANCE_EXPIRING, $this->membership->status);
 
         // Email de alerta enviado al cliente
-        Mail::assertSent(fn ($mail) => $mail->hasTo('juan@test.com'));
+        Mail::assertSent(fn (\Illuminate\Mail\Mailable $mail) => $mail->hasTo('juan@test.com'));
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -350,9 +332,6 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->membership = Membership::create([
             'client_id'     => $this->client->id,
             'plan_id'       => $this->plan->id,
-            'name'          => 'Plan Premium',
-            'price'         => 300.00,
-            'duration_days' => 30,
             'start_date'    => today()->subMonths(2),
             'end_date'      => today()->addMonths(3),
             'status'        => Membership::STATUS_PAUSED,
@@ -406,9 +385,6 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->membership = Membership::create([
             'client_id'         => $this->client->id,
             'plan_id'           => $this->plan->id,
-            'name'              => 'Plan Premium',
-            'price'             => 300.00,
-            'duration_days'     => 30,
             'start_date'        => today(),
             'end_date'          => today()->addDays(180),
             'status'            => Membership::STATUS_ACTIVE,
@@ -445,9 +421,6 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->membership = Membership::create([
             'client_id'      => $this->client->id,
             'plan_id'        => $this->plan->id,
-            'name'           => 'Plan Premium',
-            'price'          => 300.00,
-            'duration_days'  => 30,
             'start_date'     => today(),
             'end_date'       => today()->addDays(180),
             'status'         => Membership::STATUS_PAUSED,
@@ -497,9 +470,6 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->membership = Membership::create([
             'client_id'      => $this->client->id,
             'plan_id'        => $this->plan->id,
-            'name'           => 'Plan Premium',
-            'price'          => 300.00,
-            'duration_days'  => 30,
             'start_date'     => today()->subMonths(3),
             'end_date'       => today()->addMonths(3),
             'status'         => Membership::STATUS_ADVANCE_ACTIVE,
@@ -556,9 +526,6 @@ class ReactivarSuscripcionesTest extends TestCase
         $this->membership = Membership::create([
             'client_id'      => $this->client->id,
             'plan_id'        => $this->plan->id,
-            'name'           => 'Plan Premium',
-            'price'          => 300.00,
-            'duration_days'  => 30,
             'start_date'     => today()->subMonths(1),
             'end_date'       => today()->addDays(180),
             'status'         => Membership::STATUS_ACTIVE,

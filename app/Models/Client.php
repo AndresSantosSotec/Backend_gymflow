@@ -41,6 +41,8 @@ class Client extends Model
         'height_cm',
         'medical_conditions',
         'referral_source',
+        'recurrente_user_id',
+        'recurrente_payment_method_id',
     ];
 
     protected $casts = [

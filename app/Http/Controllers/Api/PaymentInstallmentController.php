@@ -7,6 +7,7 @@ use App\Models\PaymentInstallment;
 use App\Models\Payment;
 use App\Models\Membership;
 use App\Models\Receipt;
+use App\Services\FelPaymentService;
 use Illuminate\Http\Request;
 
 class PaymentInstallmentController extends Controller
@@ -94,6 +95,7 @@ class PaymentInstallmentController extends Controller
             'reference' => 'nullable|string',
             'notes' => 'nullable|string',
             'document_base64' => 'nullable|string',
+            'issue_fel' => 'nullable|boolean',
         ]);
 
         $remaining = (float) $installment->amount - (float) $installment->amount_paid;
@@ -150,15 +152,26 @@ class PaymentInstallmentController extends Controller
         $installment->membership->recalculatePaymentStatus();
 
         // Auto-generate receipt for installment payment
+        $receipt = null;
+        $felResult = null;
         try {
-            Receipt::createFromPaymentAuto($payment, 'subscription', $installment->membership_id);
+            $receipt = Receipt::createFromPaymentAuto($payment, 'subscription', $installment->membership_id);
         } catch (\Exception $e) {
             //\Log::warning('Auto-receipt failed for installment payment #' . $payment->id . ': ' . $e->getMessage());
+        }
+
+        $issueFel = $request->has('issue_fel') ? $request->boolean('issue_fel') : null;
+        try {
+            $felResult = app(FelPaymentService::class)->processAfterPayment($payment, $issueFel);
+        } catch (\Exception $e) {
+            $felResult = ['success' => false, 'fel_status' => 'failed', 'error' => $e->getMessage()];
         }
 
         return response()->json([
             'installment' => $installment->fresh()->load(['membership.plan', 'client', 'payment']),
             'payment' => $payment,
+            'receipt' => $receipt?->fresh(),
+            'fel' => $felResult,
             'message' => $installment->status === 'paid'
                 ? "Cuota #{$installment->installment_number} pagada completamente"
                 : "Abono de Q" . number_format($payAmount, 2) . " registrado",

@@ -14,12 +14,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('clients', function (Blueprint $table) {
-            // Drop unique constraints that can cause duplicate entry errors
-            $table->dropUnique('clients_email_unique');
-            $table->dropUnique('clients_dni_unique');
-            // fingerprint_id keeps its unique constraint - one fingerprint per person
-        });
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            return;
+        }
+
+        try {
+            Schema::table('clients', function (Blueprint $table) {
+                $table->dropUnique('clients_email_unique');
+            });
+        } catch (\Throwable $e) {}
+
+        try {
+            Schema::table('clients', function (Blueprint $table) {
+                $table->dropUnique('clients_dni_unique');
+            });
+        } catch (\Throwable $e) {}
     }
 
     /**

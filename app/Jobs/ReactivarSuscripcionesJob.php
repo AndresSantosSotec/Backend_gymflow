@@ -107,6 +107,7 @@ class ReactivarSuscripcionesJob implements ShouldQueue
                 Log::info("[ReactivarSuscripciones] ⚠ Alerta emitida: membresía #{$membership->id} cliente #{$membership->client_id}");
 
             } catch (\Throwable $e) {
+                dump("Error en alerta: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
                 Log::warning("[ReactivarSuscripciones] Error en alerta #{$membership->id}: " . $e->getMessage());
             }
         }
@@ -235,6 +236,10 @@ class ReactivarSuscripcionesJob implements ShouldQueue
                     'reactivation_error_at' => now(),
                 ]);
 
+                if (str_contains($e->getMessage(), 'ya no es válido en Recurrente')) {
+                    $membership->client?->update(['recurrente_payment_method_id' => null]);
+                }
+
                 $this->enRiesgo++;
                 $this->errores[] = "Membresía #{$membership->id} (cliente #{$membership->client_id}): " . $e->getMessage();
 
@@ -326,16 +331,16 @@ class ReactivarSuscripcionesJob implements ShouldQueue
     {
         try {
             $methods = $recurrente->getPaymentMethods($client->recurrente_user_id);
-            $valid   = collect($methods)->firstWhere('id', $client->recurrente_payment_method_id);
-
-            if (! $valid) {
-                // Token expirado → limpiar del cliente
-                $client->update(['recurrente_payment_method_id' => null]);
-                throw new \Exception("payment_method_id {$client->recurrente_payment_method_id} ya no es válido en Recurrente. Se limpió del cliente.");
-            }
         } catch (\Exception $e) {
             // Si GET falla por otro motivo, no bloquear la reactivación
             Log::warning("[ReactivarSuscripciones] No se pudo validar payment_method: " . $e->getMessage());
+            return;
+        }
+
+        $valid = collect($methods)->firstWhere('id', $client->recurrente_payment_method_id);
+
+        if (! $valid) {
+            throw new \Exception("payment_method_id {$client->recurrente_payment_method_id} ya no es válido en Recurrente. Se limpió del cliente.");
         }
     }
 
@@ -376,11 +381,8 @@ class ReactivarSuscripcionesJob implements ShouldQueue
                 default => "<p>Tu membresía ha sido actualizada.</p>",
             };
 
-            Mail::send([], [], function ($m) use ($client, $subject, $html) {
-                $m->to($client->email, $client->first_name . ' ' . $client->last_name)
-                  ->subject($subject)
-                  ->html($html);
-            });
+            Mail::to($client->email, $client->first_name . ' ' . $client->last_name)
+                ->send(new \App\Mail\GenericMail($subject, $html));
 
             DB::table('notification_log')->insert([
                 'client_id'  => $client->id,
@@ -429,11 +431,8 @@ class ReactivarSuscripcionesJob implements ShouldQueue
         }
 
         try {
-            Mail::send([], [], function ($m) use ($adminEmail, $resumen) {
-                $m->to($adminEmail)
-                  ->subject('📊 IronGym — Resumen de membresías ' . today()->format('d/m/Y'))
-                  ->html($resumen);
-            });
+            Mail::to($adminEmail)
+                ->send(new \App\Mail\GenericMail('📊 IronGym — Resumen de membresías ' . today()->format('d/m/Y'), $resumen));
         } catch (\Throwable $e) {
             Log::warning("[ReactivarSuscripciones] No se pudo enviar resumen al admin: " . $e->getMessage());
         }
@@ -446,16 +445,16 @@ class ReactivarSuscripcionesJob implements ShouldQueue
         // Intentar notificar al admin aunque el job haya muerto
         try {
             $adminEmail = config('mail.admin_email', 'admin@irongym.com');
-            Mail::send([], [], function ($m) use ($adminEmail, $exception) {
-                $m->to($adminEmail)
-                  ->subject('🚨 CRÍTICO — ReactivarSuscripcionesJob falló ' . now()->format('d/m/Y H:i'))
-                  ->html("
+            Mail::to($adminEmail)
+                ->send(new \App\Mail\GenericMail(
+                    '🚨 CRÍTICO — ReactivarSuscripcionesJob falló ' . now()->format('d/m/Y H:i'),
+                    "
                     <h2>🚨 El Job de reactivación automática falló definitivamente</h2>
                     <p>Error: {$exception->getMessage()}</p>
                     <p>Las membresías que vencían hoy NO fueron reactivadas automáticamente.</p>
                     <p><strong>Acción requerida:</strong> Reactivar manualmente desde /admin/memberships/risk</p>
-                  ");
-            });
+                    "
+                ));
         } catch (\Throwable) {}
     }
 }

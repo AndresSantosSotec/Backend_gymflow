@@ -20,6 +20,14 @@ class PaymentInstallment extends Model
         'payment_id',
         'paid_at',
         'notes',
+        'payment_method',
+        'transfer_reference',
+        'is_advance_payment',
+        'registered_by',
+        'precio_pagado',
+        'descuento_aplicado',
+        'descuento_motivo',
+        'descuento_autorizado_por',
     ];
 
     protected $casts = [
@@ -28,6 +36,10 @@ class PaymentInstallment extends Model
         'due_date' => 'date',
         'paid_at' => 'datetime',
         'installment_number' => 'integer',
+        'is_advance_payment' => 'boolean',
+        'precio_pagado' => 'decimal:2',
+        'descuento_aplicado' => 'decimal:2',
+        'registered_by' => 'integer',
     ];
 
     public function membership()

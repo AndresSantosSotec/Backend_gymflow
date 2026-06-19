@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\ReportExportController;
 use App\Http\Controllers\Api\MonitorController;
 use App\Http\Controllers\Api\PaymentInstallmentController;
 use App\Http\Controllers\Api\ReceiptController;
+use App\Http\Controllers\Api\FelController;
 use App\Http\Controllers\Api\FingerprintStatusController;
 use App\Http\Controllers\Api\RecurrenteController;
 use App\Http\Controllers\Api\MembresiaLifecycleController;
@@ -245,6 +246,28 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('', ReceiptController::class, ['as' => 'receipts']);
     });
 
+    // Facturación electrónica FEL (Corpo Sistemas)
+    Route::prefix('fel')->middleware('permission:PAYMENTS_VIEW,PAYMENTS_MANAGE')->group(function () {
+        Route::get('/status', [FelController::class, 'status']);
+        Route::post('/consult-nit', [FelController::class, 'consultNit']);
+        Route::post('/consult-cui', [FelController::class, 'consultCui']);
+        Route::post('/receipts/{id}/certify', [FelController::class, 'certifyReceipt']);
+        Route::get('/receipts/{id}/pdf', [FelController::class, 'downloadFelPdf']);
+        Route::get('/receipts/{id}/xml', [FelController::class, 'downloadFelXml']);
+        Route::post('/receipts/{id}/void', [FelController::class, 'voidReceipt']);
+
+        // Endpoints de Playground / Pruebas diagnósticas
+        Route::post('/phrases', [FelController::class, 'phrases']);
+        Route::post('/establishments', [FelController::class, 'establishments']);
+        Route::post('/query-guid', [FelController::class, 'queryGuid']);
+        Route::post('/query-date-range', [FelController::class, 'queryDateRange']);
+        Route::post('/pdf-by-guid', [FelController::class, 'getPdfByGuid']);
+        Route::post('/void-by-guid', [FelController::class, 'voidByGuid']);
+        Route::post('/certify-raw-xml', [FelController::class, 'certifyRawXml']);
+        Route::get('/samples', [FelController::class, 'getSamples']);
+        Route::get('/samples/{category}/{filename}', [FelController::class, 'getSampleContent']);
+    });
+
 
     // Leads special routes (BEFORE apiResource to avoid conflicts)
     Route::get('/leads/statistics/all', [LeadController::class, 'statistics'])
@@ -317,6 +340,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/logs', [MonitorController::class, 'logs']);
         Route::get('/stats', [MonitorController::class, 'stats']);
         Route::delete('/logs', [MonitorController::class, 'clearLogs']);
+    });
+
+    // Pagos Adelanto (Meses Prepagados)
+    Route::prefix('pagos/adelanto')->middleware('permission:PAYMENTS_VIEW,PAYMENTS_MANAGE')->group(function () {
+        Route::post('/', [PagoAdelantoController::class, 'registrarPagoAdelanto']);
+        Route::get('/client/{id}', [PagoAdelantoController::class, 'estadoCuotas']);
+        Route::post('/reactivar', [PagoAdelantoController::class, 'reactivarSuscripcion']);
+        Route::post('/{logId}/revertir', [PagoAdelantoController::class, 'anularPagoAdelantado']);
+        Route::get('/{logId}/reembolso', [PagoAdelantoController::class, 'calcularReembolso']);
+        Route::post('/upgrade-plan', [PagoAdelantoController::class, 'cambiarPlan']);
+        Route::get('/alertas', [PagoAdelantoController::class, 'listarAlertas']);
+        Route::patch('/alertas/{id}', [PagoAdelantoController::class, 'resolverAlerta']);
     });
 
     // ── Productos de Inscripción (Pagos Únicos) ──────────────────────

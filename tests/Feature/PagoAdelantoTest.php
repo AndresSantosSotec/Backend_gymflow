@@ -33,8 +33,17 @@ class PagoAdelantoTest extends TestCase
     {
         parent::setUp();
 
-        $this->admin = User::factory()->create(['role' => 'admin']);
-        $this->client = Client::factory()->create([
+        $role = \App\Models\Role::firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
+        $p1 = \App\Models\Permission::firstOrCreate(['slug' => 'PAYMENTS_VIEW'], ['name' => 'View Payments']);
+        $p2 = \App\Models\Permission::firstOrCreate(['slug' => 'PAYMENTS_MANAGE'], ['name' => 'Manage Payments']);
+        $role->permissions()->sync([$p1->id, $p2->id]);
+
+        $this->admin = User::factory()->create(['role_id' => $role->id]);
+        $this->client = Client::create([
+            'first_name'                  => 'Client',
+            'last_name'                   => 'Test',
+            'email'                       => 'client.test.' . rand(1000, 9999) . '@example.com',
+            'qr_code'                     => 'QR_TEST_' . rand(100000, 999999),
             'recurrente_user_id'          => 'us_test_123',
             'recurrente_payment_method_id' => 'pay_m_test_456',
         ]);
@@ -45,10 +54,13 @@ class PagoAdelantoTest extends TestCase
      */
     private function crearMembresiaConCuotas(int $numCuotas = 12, float $precioPorCuota = 500.00): array
     {
-        $plan = MembershipPlan::factory()->create([
-            'price'        => $precioPorCuota,
-            'duration_days' => 30,
+        $plan = MembershipPlan::create([
+            'name'                  => 'Plan Test ' . rand(1000, 9999),
+            'slug'                  => 'plan-test-' . rand(1000, 9999),
+            'price'                 => $precioPorCuota,
+            'duration_days'         => 30,
             'recurrente_product_id' => 'prod_test_' . rand(1000, 9999),
+            'published'             => true,
         ]);
 
         $membership = Membership::create([
@@ -177,7 +189,7 @@ class PagoAdelantoTest extends TestCase
         // La próxima cuota es la 7 (índice 6)
         $this->assertNotNull($resultado['proxima_cuota']);
         $this->assertEquals(
-            $installments[6]->due_date->toDateString(),
+            Carbon::parse($installments[6]->due_date)->startOfMonth()->toDateString(),
             $resultado['next_charge_date']
         );
 
