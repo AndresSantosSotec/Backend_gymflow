@@ -50,6 +50,9 @@ return [
         'min_enrollment_quality' => env('FINGERPRINT_MIN_ENROLLMENT_QUALITY', 50),
         // Obligatorio: 6 muestras (1 principal + 5 extras) con enrollment guiado v2
         'min_enrollment_samples' => env('FINGERPRINT_MIN_ENROLLMENT_SAMPLES', 6),
+        // Mismo valor en fingerprint-server/.env → FP_MATCH_SECRET
+        'match_secret'     => env('FINGERPRINT_MATCH_SECRET', env('FP_MATCH_SECRET', '')),
+        'match_token_ttl'  => (int) env('FINGERPRINT_MATCH_TOKEN_TTL', 30),
     ],
 
 ];

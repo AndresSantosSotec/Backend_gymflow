@@ -54,19 +54,33 @@ class MembershipController extends Controller
             'num_installments' => 'sometimes|integer|min:1|max:12',
             'initial_payment' => 'sometimes|numeric|min:0', // enganche
             'inscription_fee' => 'sometimes|numeric|min:0', // cuota 0 / inscripción
+            'issue_fel' => 'sometimes|boolean',
+            'start_date' => 'sometimes|date',
+            'billing_day' => 'sometimes|integer|min:1|max:28',
         ]);
 
         $client = Client::findOrFail($validated['client_id']);
         $plan = MembershipPlan::findOrFail($validated['plan_id']);
 
         $inscriptionFee = (float) ($validated['inscription_fee'] ?? 0);
-        $paymentType = 'installments'; // Forzar a cuotas
-        $numInstallments = 12; // Forzar a 12 cuotas
-        $totalAmount = ((float) $plan->price * $numInstallments) + $inscriptionFee;
+        $paymentType = $validated['payment_type'] ?? 'single';
+        $numInstallments = (int) ($validated['num_installments'] ?? ($paymentType === 'installments' ? 12 : 1));
+        $numInstallments = max(1, min(12, $numInstallments));
 
-        // Calculate dates
-        $startDate = Carbon::now();
+        if ($paymentType === 'single') {
+            $totalAmount = (float) $validated['amount'];
+        } else {
+            $totalAmount = ((float) $plan->price * $numInstallments) + $inscriptionFee;
+        }
+
+        // Calculate dates (optional start_date + billing_day for cuotas)
+        $startDate = !empty($validated['start_date'])
+            ? Carbon::parse($validated['start_date'])->startOfDay()
+            : Carbon::now();
         $endDate = $startDate->copy()->addDays($plan->duration_days);
+        $billingDay = isset($validated['billing_day'])
+            ? max(1, min(28, (int) $validated['billing_day']))
+            : null;
 
         // Procesar documento de transferencia (base64) si existe
         $documentUrl = null;
@@ -84,7 +98,7 @@ class MembershipController extends Controller
         }
 
         // Todo debe ejecutarse de forma atómica. Si algo falla (ej. base de datos), se deshace.
-        return DB::transaction(function () use ($validated, $client, $plan, $inscriptionFee, $paymentType, $numInstallments, $totalAmount, $startDate, $endDate, $request, $documentUrl) {
+        $result = DB::transaction(function () use ($validated, $client, $plan, $inscriptionFee, $paymentType, $numInstallments, $totalAmount, $startDate, $endDate, $request, $documentUrl) {
             // 1. Asignar membresía al cliente (relación principal)
             $membership = Membership::create([
                 'client_id' => $client->id,
@@ -99,6 +113,8 @@ class MembershipController extends Controller
                 'amount_paid' => 0,
                 'payment_status' => 'pending',
             ]);
+
+            $payment = null;
 
             if ($paymentType === 'single') {
                 // ── Flujo de Pago Único ──
@@ -178,6 +194,7 @@ class MembershipController extends Controller
                         'notes' => 'Enganche / Pago inicial / Inscripción',
                         'paid_at' => now(),
                     ]);
+                    $payment = $firstPayment;
                 }
 
                 // 3. Crear cuota #0 de inscripción vinculada al plan generado
@@ -201,6 +218,9 @@ class MembershipController extends Controller
 
                 for ($i = 1; $i <= $numInstallments; $i++) {
                     $dueDate = $startDate->copy()->addMonths($i);
+                    if ($billingDay !== null) {
+                        $dueDate->day(min($billingDay, $dueDate->daysInMonth));
+                    }
                     $amt = ($i === $numInstallments) ? $adjustedLast : $installmentAmount;
 
                     $instPaid = min($amt, $paidAmount);
@@ -238,13 +258,32 @@ class MembershipController extends Controller
             // Activar al cliente final
             $client->update(['status' => 'active']);
 
-            return response()->json([
-                'membership' => $membership->load(['client', 'plan', 'installments']),
+            return [
+                'membership' => $membership,
+                'payment' => $payment,
                 'message' => $paymentType === 'installments'
                     ? "Membresía asignada con plan de {$numInstallments} cuotas"
                     : 'Membresía asignada exitosamente',
-            ], 201);
+            ];
         });
+
+        // 2. Procesar FEL afuera de la transacción DB (Best Practice para llamadas HTTP)
+        $felResult = null;
+        if ($result['payment']) {
+            $issueFel = $request->has('issue_fel') ? $request->boolean('issue_fel') : null;
+            try {
+                $felResult = app(\App\Services\FelPaymentService::class)->processAfterPayment($result['payment'], $issueFel);
+            } catch (\Exception $e) {
+                \Log::warning('Auto-certification on membership assign failed: ' . $e->getMessage());
+                $felResult = ['success' => false, 'fel_status' => 'failed', 'error' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'membership' => $result['membership']->load(['client', 'plan', 'installments']),
+            'message' => $result['message'],
+            'fel' => $felResult,
+        ], 201);
     }
 
     /**

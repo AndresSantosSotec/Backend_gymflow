@@ -147,7 +147,10 @@ class Client extends Model
      */
     public function hasValidMembership(): bool
     {
-        return $this->activeMembership() !== null;
+        return $this->memberships()
+            ->where('status', 'active')
+            ->where('end_date', '>=', Carbon::today())
+            ->exists();
     }
 
     /**

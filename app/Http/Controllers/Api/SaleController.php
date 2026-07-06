@@ -71,7 +71,7 @@ class SaleController extends Controller
                 }
 
                 $venta = Venta::create([
-                    'cliente_venta_id' => $validated['cliente_venta_id'],
+                    'cliente_venta_id' => $validated['cliente_venta_id'] ?? null,
                     'total' => $total,
                     'estado' => $validated['estado'],
                 ]);

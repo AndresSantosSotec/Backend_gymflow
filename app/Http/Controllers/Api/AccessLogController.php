@@ -7,6 +7,7 @@ use App\Models\AccessLog;
 use App\Models\Client;
 use App\Services\FingerprintService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class AccessLogController extends Controller
@@ -238,9 +239,11 @@ class AccessLogController extends Controller
     public function logFingerprintAccess(Request $request)
     {
         $validated = $request->validate([
-            'client_id'      => 'required|integer',
-            'similarity_pct' => 'nullable|integer',
-            'fingerprint_id' => 'nullable|string',
+            'client_id'              => 'required|integer',
+            'similarity_pct'         => 'nullable|integer',
+            'fingerprint_id'         => 'nullable|string',
+            'match_token'            => 'nullable|string',
+            'winning_fingerprint_id' => 'nullable|string',
         ]);
 
         $client = Client::with(['memberships' => function ($q) {
@@ -252,7 +255,40 @@ class AccessLogController extends Controller
                 'match'   => false,
                 'client'  => null,
                 'message' => 'Cliente no encontrado en la base de datos.',
+            ], 404);
+        }
+
+        $winningFp = $validated['winning_fingerprint_id']
+            ?? $validated['fingerprint_id']
+            ?? null;
+
+        if ($winningFp && ! $this->clientOwnsFingerprint($client, $winningFp)) {
+            \Illuminate\Support\Facades\Log::warning('Fingerprint access rejected: fp_id mismatch', [
+                'client_id' => $client->id,
+                'fingerprint_id' => $winningFp,
             ]);
+
+            return response()->json([
+                'match'   => false,
+                'client'  => null,
+                'message' => 'La huella identificada no corresponde a este cliente.',
+            ], 422);
+        }
+
+        $secret = config('services.fingerprint.match_secret');
+        if ($secret) {
+            if (empty($validated['match_token']) || ! $this->verifyFingerprintMatchToken(
+                $validated['match_token'],
+                (int) $client->id,
+                (string) ($winningFp ?? $client->fingerprint_id ?? ''),
+                (int) ($validated['similarity_pct'] ?? 0),
+            )) {
+                return response()->json([
+                    'match'   => false,
+                    'client'  => null,
+                    'message' => 'Token de identificación inválido o expirado. Vuelve a escanear.',
+                ], 422);
+            }
         }
 
         $allowed = $this->checkClientAccess($client);
@@ -262,10 +298,15 @@ class AccessLogController extends Controller
             'access_type'         => 'entry',
             'verification_method' => 'fingerprint',
             'qr_code'             => '',
-            'fingerprint_id'      => $client->fingerprint_id ?? $validated['fingerprint_id'] ?? '',
+            'fingerprint_id'      => $winningFp ?? $client->fingerprint_id ?? '',
             'access_time'         => now(),
             'status'              => $allowed ? 'allowed' : 'denied',
-            'notes'               => 'Acceso por huella digital (identificación local — Python bridge)',
+            'notes'               => json_encode([
+                'flow'             => 'identify_local_python',
+                'similarity_pct'   => $validated['similarity_pct'] ?? 0,
+                'winning_fp_id'    => $winningFp,
+                'match_token_used' => ! empty($validated['match_token']),
+            ], JSON_UNESCAPED_UNICODE),
         ]);
 
         return response()->json([
@@ -419,5 +460,53 @@ class AccessLogController extends Controller
         $log->delete();
 
         return response()->json(['message' => 'Access log deleted successfully']);
+    }
+
+    /**
+     * Verifica que fingerprint_id pertenezca al cliente (principal o extras).
+     */
+    private function clientOwnsFingerprint(Client $client, string $fingerprintId): bool
+    {
+        if ($client->fingerprint_id === $fingerprintId) {
+            return true;
+        }
+
+        return DB::table('fingerprint_extra_templates')
+            ->where('client_id', $client->id)
+            ->where('fingerprint_id', $fingerprintId)
+            ->exists();
+    }
+
+    /**
+     * Valida match_token HMAC emitido por fingerprint-server (FP_MATCH_SECRET).
+     */
+    private function verifyFingerprintMatchToken(
+        string $token,
+        int $clientId,
+        string $fingerprintId,
+        int $similarityPct,
+    ): bool {
+        $secret = config('services.fingerprint.match_secret');
+        if (! $secret || $fingerprintId === '') {
+            return false;
+        }
+
+        $parts = explode('.', $token, 2);
+        if (count($parts) !== 2 || ! ctype_digit($parts[0])) {
+            return false;
+        }
+
+        $ts = (int) $parts[0];
+        $sig = $parts[1];
+        $ttl = (int) config('services.fingerprint.match_token_ttl', 30);
+
+        if (abs(time() - $ts) > $ttl) {
+            return false;
+        }
+
+        $message = sprintf('%d|%s|%d|%d', $clientId, $fingerprintId, $similarityPct, $ts);
+        $expected = hash_hmac('sha256', $message, $secret);
+
+        return hash_equals($expected, $sig);
     }
 }
