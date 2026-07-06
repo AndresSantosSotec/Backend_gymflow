@@ -59,6 +59,7 @@ class SaleController extends Controller
             'pagos.*.metodo_pago_id' => 'required|exists:metodo_pagos,id',
             'pagos.*.monto' => 'required|numeric|min:0',
             'pagos.*.document_base64' => 'nullable|string',
+            'issue_fel' => 'nullable|boolean',
         ]);
 
         try {
@@ -130,10 +131,27 @@ class SaleController extends Controller
                     }
                 }
 
-                return $venta->load(['cliente', 'detalles.producto', 'pagos.metodoPago', 'receipt']);
+                return $venta;
             });
 
-            return response()->json($result, 201);
+            // 2. Procesar FEL afuera de la transacción DB (Best Practice para llamadas HTTP)
+            $felResult = null;
+            if ($result->estado === 'PAGADA' && $request->boolean('issue_fel')) {
+                try {
+                    $receipt = Receipt::where('venta_id', $result->id)->first();
+                    if ($receipt) {
+                        $felResult = app(\App\Services\FelPaymentService::class)->certifyReceipt($receipt);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Auto-certification on POS sale failed: ' . $e->getMessage());
+                    $felResult = ['success' => false, 'fel_status' => 'failed', 'error' => $e->getMessage()];
+                }
+            }
+
+            $ventaData = $result->load(['cliente', 'detalles.producto', 'pagos.metodoPago', 'receipt'])->toArray();
+            $ventaData['fel'] = $felResult;
+
+            return response()->json($ventaData, 201);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -202,10 +220,27 @@ class SaleController extends Controller
                         Log::warning('Auto-receipt failed for sale #' . $venta->id . ': ' . $e->getMessage());
                     }
 
-                    return $venta->load(['cliente', 'detalles.producto', 'pagos.metodoPago', 'receipt']);
+                    return $venta;
                 });
 
-                return response()->json($result);
+                // 2. Procesar FEL afuera de la transacción DB (Best Practice para llamadas HTTP)
+                $felResult = null;
+                if ($request->boolean('issue_fel')) {
+                    try {
+                        $receipt = Receipt::where('venta_id', $result->id)->first();
+                        if ($receipt) {
+                            $felResult = app(\App\Services\FelPaymentService::class)->certifyReceipt($receipt);
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning('Auto-certification on POS sale update failed: ' . $e->getMessage());
+                        $felResult = ['success' => false, 'fel_status' => 'failed', 'error' => $e->getMessage()];
+                    }
+                }
+
+                $ventaData = $result->load(['cliente', 'detalles.producto', 'pagos.metodoPago', 'receipt'])->toArray();
+                $ventaData['fel'] = $felResult;
+
+                return response()->json($ventaData);
             } catch (\Exception $e) {
                 return response()->json(['message' => $e->getMessage()], 422);
             }

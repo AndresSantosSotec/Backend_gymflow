@@ -19,7 +19,7 @@ class ReceiptController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Receipt::with(['client', 'payment', 'membership.plan', 'venta']);
+        $query = Receipt::with(['client', 'payment', 'membership.plan', 'venta.cliente']);
 
         // Filtros
         if ($request->has('client_id')) {
@@ -95,7 +95,7 @@ class ReceiptController extends Controller
 
         $receipt = Receipt::create($validated);
 
-        return response()->json($receipt->load(['client', 'payment', 'membership', 'venta']), 201);
+        return response()->json($receipt->load(['client', 'payment', 'membership', 'venta.cliente']), 201);
     }
 
     /**
@@ -103,7 +103,7 @@ class ReceiptController extends Controller
      */
     public function show(string $id)
     {
-        $receipt = Receipt::with(['client', 'payment', 'membership', 'venta'])->findOrFail($id);
+        $receipt = Receipt::with(['client', 'payment', 'membership', 'venta.cliente'])->findOrFail($id);
         return response()->json($receipt);
     }
 
@@ -127,7 +127,7 @@ class ReceiptController extends Controller
 
         $receipt->update($validated);
 
-        return response()->json($receipt->load(['client', 'payment', 'membership', 'venta']));
+        return response()->json($receipt->load(['client', 'payment', 'membership', 'venta.cliente']));
     }
 
     /**
@@ -241,7 +241,7 @@ class ReceiptController extends Controller
     public function byClient(string $clientId)
     {
         $receipts = Receipt::where('client_id', $clientId)
-            ->with(['payment', 'membership', 'venta'])
+            ->with(['payment', 'membership', 'venta.cliente'])
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -313,7 +313,7 @@ class ReceiptController extends Controller
         ]);
 
         $receipts = Receipt::whereIn('id', $validated['ids'])
-            ->with(['client', 'payment', 'membership', 'venta'])
+            ->with(['client', 'payment', 'membership', 'venta.cliente'])
             ->get();
 
         // TODO: Implementar exportación a Excel/PDF
@@ -462,7 +462,7 @@ class ReceiptController extends Controller
     public function previewReceipt(string $id)
     {
         try {
-            $receipt = Receipt::with(['client', 'payment', 'membership.plan', 'venta'])->findOrFail($id);
+            $receipt = Receipt::with(['client', 'payment', 'membership.plan', 'venta.cliente'])->findOrFail($id);
 
             $companyName = config('app.name', 'IronGym');
             $companyAddress = config('site.company_address', 'Dirección no configurada');
@@ -490,7 +490,7 @@ class ReceiptController extends Controller
     public function previewInvoice(string $id)
     {
         try {
-            $receipt = Receipt::with(['client', 'payment', 'membership.plan', 'venta'])->findOrFail($id);
+            $receipt = Receipt::with(['client', 'payment', 'membership.plan', 'venta.cliente'])->findOrFail($id);
 
             if (!$receipt->is_invoiced) {
                 return response()->json([
@@ -565,7 +565,7 @@ class ReceiptController extends Controller
     public function report(Request $request)
     {
         try {
-            $query = Receipt::with(['client', 'payment', 'membership.plan', 'venta']);
+            $query = Receipt::with(['client', 'payment', 'membership.plan', 'venta.cliente']);
             $appliedFilters = [];
 
             // Date range filter

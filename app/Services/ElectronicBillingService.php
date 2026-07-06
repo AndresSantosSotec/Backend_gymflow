@@ -40,7 +40,7 @@ class ElectronicBillingService
                 throw new Exception("Receipt must be invoiced first");
             }
 
-            $receipt->load(['client', 'payment', 'membership']);
+            $receipt->load(['client', 'payment', 'membership', 'venta.cliente']);
 
             $invoiceData = $this->prepareInvoiceData($receipt);
 
@@ -80,6 +80,11 @@ class ElectronicBillingService
      */
     private function prepareInvoiceData(Receipt $receipt): array
     {
+        $client = $receipt->client;
+        if (!$client && $receipt->venta) {
+            $client = $receipt->venta->cliente;
+        }
+
         return [
             'invoice_number' => $receipt->invoice_number,
             'receipt_number' => $receipt->receipt_number,
@@ -97,11 +102,21 @@ class ElectronicBillingService
 
             // Cliente
             'client' => [
-                'name' => $receipt->client->full_name ?? 'Cliente Anónimo',
-                'tax_id' => $receipt->client->dni ?? '',
-                'email' => $receipt->client->email ?? '',
-                'phone' => $receipt->client->phone ?? '',
-                'address' => $receipt->client->address ?? '',
+                'name' => $client instanceof \App\Models\Client
+                    ? ($client->company_name ?? $client->full_name ?? 'Cliente Anónimo')
+                    : ($client?->nombre ?? 'Cliente Anónimo'),
+                'tax_id' => $client instanceof \App\Models\Client
+                    ? ($client->nit ?? $client->dni ?? 'CF')
+                    : ($client?->nit ?? 'CF'),
+                'email' => $client instanceof \App\Models\Client
+                    ? ($client->email ?? '')
+                    : ($client?->correo ?? ''),
+                'phone' => $client instanceof \App\Models\Client
+                    ? ($client->phone ?? '')
+                    : ($client?->telefono ?? ''),
+                'address' => $client instanceof \App\Models\Client
+                    ? ($client->fiscal_address ?? $client->address ?? 'CIUDAD')
+                    : ($client?->ciudad ?? 'CIUDAD'),
             ],
 
             // Conceptos
@@ -138,7 +153,8 @@ class ElectronicBillingService
     {
         try {
             $felPayment = app(FelPaymentService::class);
-            $receptor = $felPayment->resolveReceptor($receipt->client);
+            $client = $receipt->client ?? $receipt->venta?->cliente ?? null;
+            $receptor = $felPayment->resolveReceptor($client);
 
             $builder = app(FelDteBuilder::class);
             $dteXml = $builder->buildFromReceipt($receipt, $receptor);
@@ -473,9 +489,14 @@ class ElectronicBillingService
             ];
         }
 
+        $client = $receipt->client;
+        if (!$client && $receipt->venta) {
+            $client = $receipt->venta->cliente;
+        }
+
         $receptorId = (string) ($billingData['receptor']['id'] ?? 'CF');
-        if ($receptorId === 'CF' && $receipt->client?->nit) {
-            $receptorId = preg_replace('/\D/', '', (string) $receipt->client->nit) ?: 'CF';
+        if ($receptorId === 'CF' && $client?->nit) {
+            $receptorId = preg_replace('/\D/', '', (string) $client->nit) ?: 'CF';
         }
 
         $emissionDate = $billingData['emission_date'] ?? null;

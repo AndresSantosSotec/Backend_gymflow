@@ -91,10 +91,34 @@ class FelPaymentService
     /**
      * Resolver datos del receptor consultando NIT o CUI en Corpo Sistemas.
      */
-    public function resolveReceptor(Client $client): array
+    public function resolveReceptor($client = null): array
     {
-        $nit = preg_replace('/\D/', '', (string) ($client->nit ?? ''));
-        $cui = preg_replace('/\D/', '', (string) ($client->dni ?? ''));
+        if (!$client) {
+            return [
+                'id' => 'CF',
+                'name' => 'CONSUMIDOR FINAL',
+                'address' => 'GUATEMALA',
+                'zip' => '01001',
+                'municipality' => 'GUATEMALA',
+                'department' => 'GUATEMALA',
+            ];
+        }
+
+        $nit = '';
+        $cui = '';
+        $name = 'CONSUMIDOR FINAL';
+        $address = 'GUATEMALA';
+
+        if ($client instanceof \App\Models\Client) {
+            $nit = preg_replace('/\D/', '', (string) ($client->nit ?? ''));
+            $cui = preg_replace('/\D/', '', (string) ($client->dni ?? ''));
+            $name = $client->company_name ?? $client->full_name ?? 'CLIENTE';
+            $address = $client->fiscal_address ?? $client->address ?? 'GUATEMALA';
+        } elseif ($client instanceof \App\Models\ClienteVenta) {
+            $nit = preg_replace('/\D/', '', (string) ($client->nit ?? ''));
+            $name = $client->nombre ?? 'CLIENTE';
+            $address = $client->ciudad ?? 'GUATEMALA';
+        }
 
         if (strlen($nit) >= 2 && strtoupper($nit) !== 'CF') {
             $lookup = $this->corpoFelClient->consultNit($nit);
@@ -102,13 +126,13 @@ class FelPaymentService
                 $data = $lookup['data'] ?? [];
                 $satName = trim((string) ($data['messageContent'] ?? ''));
                 if ($satName === '') {
-                    $satName = $client->company_name ?? $client->full_name ?? 'CLIENTE';
+                    $satName = $name;
                 }
 
                 return [
                     'id' => $nit,
                     'name' => $satName,
-                    'address' => $client->fiscal_address ?? $client->address ?? 'CIUDAD',
+                    'address' => $address,
                     'zip' => '01001',
                     'municipality' => 'GUATEMALA',
                     'department' => 'GUATEMALA',
@@ -127,11 +151,11 @@ class FelPaymentService
             $lookup = $this->corpoFelClient->consultCui($cui);
             if ($lookup['success'] ?? false) {
                 $json = $lookup['parsed']['data2_json'] ?? [];
-                $name = $json['nombre'] ?? $client->full_name ?? 'CLIENTE';
+                $satName = $json['nombre'] ?? $name;
                 return [
                     'id' => $cui,
-                    'name' => $name,
-                    'address' => $client->address ?? 'CIUDAD',
+                    'name' => $satName,
+                    'address' => $address,
                     'zip' => '01001',
                     'municipality' => 'GUATEMALA',
                     'department' => 'GUATEMALA',
@@ -142,8 +166,8 @@ class FelPaymentService
 
         return [
             'id' => 'CF',
-            'name' => 'CONSUMIDOR FINAL',
-            'address' => 'CIUDAD',
+            'name' => $name,
+            'address' => $address,
             'zip' => '01001',
             'municipality' => 'GUATEMALA',
             'department' => 'GUATEMALA',
