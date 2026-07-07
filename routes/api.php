@@ -204,6 +204,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Memberships special routes
     Route::post('/memberships/assign', [MembershipController::class, 'assign'])
         ->middleware('permission:MEMBERSHIPS_MANAGE');
+    // Servicios activos de un cliente agrupados por tipo (cobros desfasados / ciclos independientes)
+    Route::get('/memberships/client/{clientId}/services', [MembershipController::class, 'clientServices'])
+        ->middleware('permission:MEMBERSHIPS_VIEW,MEMBERSHIPS_MANAGE');
+    Route::get('/memberships/client/{clientId}', [MembershipController::class, 'byClient'])
+        ->middleware('permission:MEMBERSHIPS_VIEW,MEMBERSHIPS_MANAGE');
 
     // Payment Installments (Cuotas)
     Route::prefix('installments')->middleware('permission:PAYMENTS_VIEW,PAYMENTS_MANAGE')->group(function () {

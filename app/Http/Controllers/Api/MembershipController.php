@@ -44,19 +44,22 @@ class MembershipController extends Controller
     public function assign(Request $request)
     {
         $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'plan_id' => 'required|exists:membership_plans,id',
-            'payment_method' => 'required|in:CASH,TRANSFER,STRIPE,CARD,cash,card,transfer,stripe',
-            'amount' => 'required|numeric|min:0',
-            'reference' => 'nullable|string',
+            'client_id'       => 'required|exists:clients,id',
+            'plan_id'         => 'required|exists:membership_plans,id',
+            'payment_method'  => 'required|in:CASH,TRANSFER,STRIPE,CARD,cash,card,transfer,stripe',
+            'amount'          => 'required|numeric|min:0',
+            'reference'       => 'nullable|string',
             // Payment plan fields
-            'payment_type' => 'sometimes|in:single,installments',
-            'num_installments' => 'sometimes|integer|min:1|max:12',
+            'payment_type'    => 'sometimes|in:single,installments',
+            'num_installments'=> 'sometimes|integer|min:1|max:12',
             'initial_payment' => 'sometimes|numeric|min:0', // enganche
             'inscription_fee' => 'sometimes|numeric|min:0', // cuota 0 / inscripción
-            'issue_fel' => 'sometimes|boolean',
-            'start_date' => 'sometimes|date',
-            'billing_day' => 'sometimes|integer|min:1|max:28',
+            'issue_fel'       => 'sometimes|boolean',
+            // start_date define el ciclo independiente de este servicio.
+            // Si se paga el día 15, start_date=15 → end_date=15+duration_days.
+            // Esto permite cobros "desfasados": cada servicio tiene su propio vencimiento.
+            'start_date'      => 'sometimes|date',
+            'billing_day'     => 'sometimes|integer|min:1|max:28',
         ]);
 
         $client = Client::findOrFail($validated['client_id']);
@@ -354,5 +357,80 @@ class MembershipController extends Controller
             ->get();
 
         return response()->json($memberships);
+    }
+
+    /**
+     * Retorna todos los servicios activos de un cliente agrupados por tipo de plan.
+     *
+     * Endpoint: GET /api/memberships/client/{clientId}/services
+     *
+     * Cada servicio tiene su propio ciclo de vencimiento independiente.
+     * Un cliente puede tener, por ejemplo:
+     *   - Mensualidad que vence el 1 del mes
+     *   - Entrenamiento personalizado que vence el 15 del mes
+     * Sin que ninguno afecte al otro.
+     */
+    public function clientServices(string $clientId)
+    {
+        // Traer TODAS las membresias del cliente, ordenadas por tipo y fecha de creación
+        $memberships = Membership::with(['plan', 'installments'])
+            ->where('client_id', $clientId)
+            ->whereIn('status', [
+                Membership::STATUS_ACTIVE,
+                Membership::STATUS_ADVANCE_ACTIVE,
+                Membership::STATUS_ADVANCE_EXPIRING,
+                Membership::STATUS_AT_RISK,
+                Membership::STATUS_PAUSED,
+            ])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Agrupar por plan_type para que el frontend pueda mostrar cada servicio
+        // en su propia tarjeta con su fecha de vencimiento propia
+        $grouped = $memberships->groupBy(function ($membership) {
+            return $membership->plan->plan_type ?? 'membership';
+        });
+
+        // Construir respuesta estructurada por tipo de servicio
+        $services = [];
+        $planTypeLabels = \App\Models\MembershipPlan::TYPE_LABELS;
+
+        foreach ($grouped as $planType => $membershipsOfType) {
+            // La membresia activa más reciente de este tipo es la que manda
+            $active = $membershipsOfType->first();
+
+            $services[] = [
+                'plan_type'       => $planType,
+                'plan_type_label' => $planTypeLabels[$planType] ?? 'Servicio',
+                'active_membership' => [
+                    'id'             => $active->id,
+                    'status'         => $active->status,
+                    'start_date'     => $active->start_date?->toDateString(),
+                    'end_date'       => $active->end_date?->toDateString(),
+                    'advance_end_date' => $active->advance_end_date?->toDateString(),
+                    'payment_status' => $active->payment_status,
+                    'amount_paid'    => (float) $active->amount_paid,
+                    'total_amount'   => (float) $active->total_amount,
+                    'days_remaining' => $active->end_date
+                        ? (int) now()->startOfDay()->diffInDays($active->end_date, false)
+                        : null,
+                    'plan'           => $active->plan ? [
+                        'id'              => $active->plan->id,
+                        'name'            => $active->plan->name,
+                        'plan_type'       => $active->plan->plan_type ?? 'membership',
+                        'plan_type_label' => $planTypeLabels[$active->plan->plan_type ?? 'membership'] ?? 'Mensualidad',
+                        'price'           => (float) $active->plan->price,
+                        'duration_days'   => $active->plan->duration_days,
+                    ] : null,
+                ],
+                'history_count' => $membershipsOfType->count(),
+            ];
+        }
+
+        return response()->json([
+            'client_id' => $clientId,
+            'services'  => $services,
+            'total_active_services' => count($services),
+        ]);
     }
 }

@@ -66,6 +66,7 @@ class MembershipPlanController extends Controller
         $validated = $request->validate([
             'name'          => 'required|string|max:255',
             'slug'          => 'nullable|string',
+            'plan_type'     => 'sometimes|in:membership,personal_training,nutrition,course,other',
             'price'         => 'required|numeric|min:0',
             'duration_days' => 'required|integer|min:1',
             'description'   => 'nullable|string',
@@ -172,6 +173,7 @@ class MembershipPlanController extends Controller
         $validated = $request->validate([
             'name'          => 'sometimes|required|string|max:255',
             'slug'          => 'sometimes|string',
+            'plan_type'     => 'sometimes|in:membership,personal_training,nutrition,course,other',
             'price'         => 'sometimes|required|numeric|min:0',
             'duration_days' => 'sometimes|required|integer|min:1',
             'description'   => 'nullable|string',
@@ -571,6 +573,8 @@ class MembershipPlanController extends Controller
             'id'                     => (string) $plan->id,
             'name'                   => $plan->name,
             'slug'                   => $plan->slug,
+            'plan_type'              => $plan->plan_type ?? 'membership',
+            'plan_type_label'        => \App\Models\MembershipPlan::TYPE_LABELS[$plan->plan_type ?? 'membership'] ?? 'Mensualidad',
             'price'                  => (float) $plan->price,
             'durationDays'           => $plan->duration_days,
             'description'            => $plan->description,

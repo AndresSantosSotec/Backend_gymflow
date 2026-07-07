@@ -132,6 +132,7 @@ class PagoAdelantoService
 
             // ── PASO 4: Evaluar y sincronizar con Recurrente ──────────────
             $suscripcion = RecurrenteSubscription::where('client_id', $clientId)
+                ->where('membership_plan_id', $membership->plan_id)
                 ->where('status', 'active')
                 ->with('membershipPlan')
                 ->first();

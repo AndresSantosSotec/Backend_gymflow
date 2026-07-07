@@ -71,11 +71,21 @@ class RecurrenteSyncSubscriptions extends Command
                     if (! $dryRun) {
                         $sub->update(['status' => $actualStatus, 'metadata' => $remoteStatus]);
 
-                        // Desactivar membresía si fue cancelada/expirada
+                        // Desactivar solo la membresía del mismo plan;
+                        // no tocar otros servicios activos del cliente.
                         if (in_array($actualStatus, ['cancelled', 'expired', 'past_due'])) {
-                            Membership::where('client_id', $sub->client_id)
-                                ->where('status', 'active')
-                                ->update(['status' => 'cancelled', 'payment_status' => 'cancelled']);
+                            $membershipQuery = Membership::where('client_id', $sub->client_id)
+                                ->where('status', 'active');
+
+                            if (! is_null($sub->membership_plan_id)) {
+                                $membershipQuery->where('plan_id', $sub->membership_plan_id);
+                            }
+
+                            $membershipQuery->update([
+                                'status' => 'cancelled',
+                                'payment_status' => 'cancelled',
+                                'recurrente_status' => 'cancelled',
+                            ]);
 
                             $this->warn("  🚫 Membresía desactivada: cliente #{$sub->client_id} ({$sub->client?->name})");
                             $deactivated++;
@@ -111,9 +121,18 @@ class RecurrenteSyncSubscriptions extends Command
             if (! $dryRun) {
                 $sub->update(['status' => 'expired']);
 
-                Membership::where('client_id', $sub->client_id)
-                    ->where('status', 'active')
-                    ->update(['status' => 'expired', 'payment_status' => 'overdue']);
+                $membershipQuery = Membership::where('client_id', $sub->client_id)
+                    ->where('status', 'active');
+
+                if (! is_null($sub->membership_plan_id)) {
+                    $membershipQuery->where('plan_id', $sub->membership_plan_id);
+                }
+
+                $membershipQuery->update([
+                    'status' => 'expired',
+                    'payment_status' => 'overdue',
+                    'recurrente_status' => 'expired',
+                ]);
 
                 $deactivated++;
                 $this->warn("  🚫 Membresía expirada: cliente #{$sub->client_id} ({$sub->client?->name})");

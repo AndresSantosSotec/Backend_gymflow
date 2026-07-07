@@ -93,6 +93,7 @@ class PausarMembresiaService
             // ── 1. Cancelar suscripción activa en Recurrente ──────────
             $subCancelada = null;
             $subActiva = RecurrenteSubscription::where('client_id', $membership->client_id)
+                ->where('membership_plan_id', $membership->plan_id)
                 ->where('status', 'active')
                 ->first();
 
@@ -349,6 +350,7 @@ class PausarMembresiaService
                 ->firstOrFail();
 
             $cuotasAnterioresNoPagadas = \App\Models\PaymentInstallment::where('client_id', $clientId)
+                ->where('membership_id', $cuotaDesdeDonde->membership_id)
                 ->where('installment_number', '<', $cuotaDesdeDonde->installment_number)
                 ->where('status', '!=', 'paid')
                 ->count();
@@ -369,6 +371,7 @@ class PausarMembresiaService
 
             // ── 3. Cancelar suscripción activa si existe ──────────────
             $subActiva = RecurrenteSubscription::where('client_id', $clientId)
+                ->where('membership_plan_id', $cuotaDesdeDonde->membership?->plan_id)
                 ->where('status', 'active')
                 ->first();
 
@@ -381,8 +384,9 @@ class PausarMembresiaService
             $client->update(['recurrente_payment_method_id' => $paymentMethodId]);
 
             // ── 5. Crear suscripción desde la fecha de la cuota objetivo
-            $membership = Membership::where('client_id', $clientId)
+            $membership = Membership::where('id', $cuotaDesdeDonde->membership_id)
                 ->where('status', '!=', Membership::STATUS_CANCELLED)
+                ->with('plan')
                 ->first();
 
             $plan = $membership?->plan;
@@ -411,6 +415,7 @@ class PausarMembresiaService
 
             // ── 6. Marcar cuotas futuras como programadas en tarjeta ──
             \App\Models\PaymentInstallment::where('client_id', $clientId)
+                ->where('membership_id', $cuotaDesdeDonde->membership_id)
                 ->where('installment_number', '>=', $cuotaDesdeDonde->installment_number)
                 ->where('status', '!=', 'paid')
                 ->update(['payment_method' => 'tarjeta_programada']);

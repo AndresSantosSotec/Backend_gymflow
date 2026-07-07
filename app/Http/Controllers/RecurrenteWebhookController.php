@@ -297,14 +297,21 @@ class RecurrenteWebhookController extends Controller
         if ($sub) {
             $sub->update(['status' => 'cancelled', 'metadata' => $data]);
 
-            // Desactivar membresía activa del cliente al cancelar suscripción
+            // Desactivar solo la membresía del mismo plan para no afectar
+            // otros servicios/membresías del cliente con vencimientos distintos.
             if ($sub->client) {
-                Membership::where('client_id', $sub->client_id)
-                    ->where('status', 'active')
-                    ->update([
-                        'status'         => 'cancelled',
-                        'payment_status' => 'cancelled',
-                    ]);
+                $query = Membership::where('client_id', $sub->client_id)
+                    ->where('status', 'active');
+
+                if (! is_null($sub->membership_plan_id)) {
+                    $query->where('plan_id', $sub->membership_plan_id);
+                }
+
+                $query->update([
+                    'status'           => 'cancelled',
+                    'payment_status'   => 'cancelled',
+                    'recurrente_status'=> 'cancelled',
+                ]);
 
                 Log::info("[Webhook:Recurrente] 🚫 Membresía desactivada por cancelación de suscripción. Cliente #{$sub->client_id}");
             }
