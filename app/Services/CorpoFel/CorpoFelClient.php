@@ -44,7 +44,8 @@ class CorpoFelClient
 
     public function consultNit(string $nit): array
     {
-        $cleanNit = preg_replace('/\D/', '', $nit);
+        $cleanNit = strtoupper(trim($nit));
+        $cleanNit = preg_replace('/[^0-9K]/', '', $cleanNit);
 
         $response = Http::timeout(30)
             ->withHeaders(['Content-Type' => 'application/json'])

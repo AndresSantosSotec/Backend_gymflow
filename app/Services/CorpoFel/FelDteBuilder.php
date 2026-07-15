@@ -23,12 +23,26 @@ class FelDteBuilder
         $description = $receipt->description
             ?: ucfirst(str_replace('_', ' ', (string) $receipt->payment_type));
 
-        $receptorId = $receptor['id'] ?? 'CF';
+        $receptorId = strtoupper(trim((string) ($receptor['id'] ?? 'CF')));
         $receptorName = $receptor['name'] ?? 'CONSUMIDOR FINAL';
         $receptorAddress = $receptor['address'] ?? 'CIUDAD';
         $receptorZip = $receptor['zip'] ?? '01001';
         $receptorMunicipality = $receptor['municipality'] ?? 'GUATEMALA';
         $receptorDepartment = $receptor['department'] ?? 'GUATEMALA';
+        $receptorTipoEspecial = strtoupper((string) ($receptor['tipo_especial'] ?? ''));
+
+        if ($receptorId === '' || $receptorId === 'C/F') {
+            $receptorId = 'CF';
+        }
+
+        if ($receptorId === 'CF') {
+            $receptorName = 'CONSUMIDOR FINAL';
+            $receptorTipoEspecial = '';
+        }
+
+        $receptorTipoEspecialAttr = $receptorTipoEspecial !== ''
+            ? ' TipoEspecial="' . $this->esc($receptorTipoEspecial) . '"'
+            : '';
 
         $emisorNit = preg_replace('/\D/', '', (string) ($cfg['entity_nit'] ?? config('site.company_tax_id')));
         $emisorName = $cfg['emisor_nombre'] ?? config('site.company_name');
@@ -64,7 +78,7 @@ class FelDteBuilder
             . '<dte:Pais>GT</dte:Pais>'
             . '</dte:DireccionEmisor>'
             . '</dte:Emisor>'
-            . '<dte:Receptor IDReceptor="' . $this->esc($receptorId) . '" NombreReceptor="' . $this->esc($receptorName) . '">'
+            . '<dte:Receptor IDReceptor="' . $this->esc($receptorId) . '"' . $receptorTipoEspecialAttr . ' NombreReceptor="' . $this->esc($receptorName) . '">'
             . '<dte:DireccionReceptor>'
             . '<dte:Direccion>' . $this->esc($receptorAddress) . '</dte:Direccion>'
             . '<dte:CodigoPostal>' . $this->esc($receptorZip) . '</dte:CodigoPostal>'

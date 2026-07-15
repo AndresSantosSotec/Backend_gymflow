@@ -94,14 +94,7 @@ class FelPaymentService
     public function resolveReceptor($client = null): array
     {
         if (!$client) {
-            return [
-                'id' => 'CF',
-                'name' => 'CONSUMIDOR FINAL',
-                'address' => 'GUATEMALA',
-                'zip' => '01001',
-                'municipality' => 'GUATEMALA',
-                'department' => 'GUATEMALA',
-            ];
+            return $this->cfReceptor();
         }
 
         $nit = '';
@@ -110,17 +103,17 @@ class FelPaymentService
         $address = 'GUATEMALA';
 
         if ($client instanceof \App\Models\Client) {
-            $nit = preg_replace('/\D/', '', (string) ($client->nit ?? ''));
+            $nit = $this->sanitizeNit((string) ($client->nit ?? ''));
             $cui = preg_replace('/\D/', '', (string) ($client->dni ?? ''));
             $name = $client->company_name ?? $client->full_name ?? 'CLIENTE';
             $address = $client->fiscal_address ?? $client->address ?? 'GUATEMALA';
         } elseif ($client instanceof \App\Models\ClienteVenta) {
-            $nit = preg_replace('/\D/', '', (string) ($client->nit ?? ''));
+            $nit = $this->sanitizeNit((string) ($client->nit ?? ''));
             $name = $client->nombre ?? 'CLIENTE';
             $address = $client->ciudad ?? 'GUATEMALA';
         }
 
-        if (strlen($nit) >= 2 && strtoupper($nit) !== 'CF') {
+        if ($nit !== '' && strtoupper($nit) !== 'CF') {
             $lookup = $this->corpoFelClient->consultNit($nit);
             if ($lookup['success'] ?? false) {
                 $data = $lookup['data'] ?? [];
@@ -140,20 +133,25 @@ class FelPaymentService
                 ];
             }
 
-            // El cliente tiene NIT en BD pero SAT lo rechaza — no facturar con CF ni CUI por error.
-            throw new \InvalidArgumentException(
-                'NIT del cliente inválido según SAT (' . $nit . '): '
-                . ($lookup['error'] ?? $lookup['data']['message'] ?? 'verifique el NIT en el perfil del cliente')
-            );
+            // Fallback controlado a CF para no bloquear venta/facturación cuando el NIT esté malo.
+            Log::warning('FEL: NIT inválido en SAT, usando CF', [
+                'nit' => $nit,
+                'client_id' => $client->id ?? null,
+                'error' => $lookup['error'] ?? $lookup['data']['message'] ?? 'NIT no encontrado',
+            ]);
+
+            return $this->cfReceptor($address);
         }
 
-        if (strlen($cui) === 13) {
+        // Si se desea usar CUI cuando no hay NIT, habilitar en config: billing.corpo_fel.use_cui_when_no_nit=true
+        if (strlen($cui) === 13 && (bool) config('billing.corpo_fel.use_cui_when_no_nit', false)) {
             $lookup = $this->corpoFelClient->consultCui($cui);
             if ($lookup['success'] ?? false) {
                 $json = $lookup['parsed']['data2_json'] ?? [];
                 $satName = $json['nombre'] ?? $name;
                 return [
                     'id' => $cui,
+                    'tipo_especial' => 'CUI',
                     'name' => $satName,
                     'address' => $address,
                     'zip' => '01001',
@@ -164,14 +162,32 @@ class FelPaymentService
             }
         }
 
+        return $this->cfReceptor($address);
+    }
+
+    private function cfReceptor(string $address = 'GUATEMALA'): array
+    {
         return [
             'id' => 'CF',
-            'name' => $name,
-            'address' => $address,
+            'name' => 'CONSUMIDOR FINAL',
+            'address' => $address !== '' ? $address : 'GUATEMALA',
             'zip' => '01001',
             'municipality' => 'GUATEMALA',
             'department' => 'GUATEMALA',
         ];
+    }
+
+    /**
+     * Mantiene dígitos y K para NIT (ej: 548912-3K -> 5489123K).
+     */
+    private function sanitizeNit(string $nit): string
+    {
+        $upper = strtoupper(trim($nit));
+        if ($upper === '' || $upper === 'CF' || $upper === 'C/F') {
+            return 'CF';
+        }
+
+        return preg_replace('/[^0-9K]/', '', $upper) ?: '';
     }
 
     private function markFelSkipped(Payment $payment, string $reason): void
