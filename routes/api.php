@@ -204,6 +204,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Memberships special routes
     Route::post('/memberships/assign', [MembershipController::class, 'assign'])
         ->middleware('permission:MEMBERSHIPS_MANAGE');
+    // Memberships próximas a vencer o ya vencidas (panel de alertas del Dashboard)
+    Route::get('/memberships/expiring', [MembershipController::class, 'expiring'])
+        ->middleware('permission:MEMBERSHIPS_VIEW,MEMBERSHIPS_MANAGE');
     // Servicios activos de un cliente agrupados por tipo (cobros desfasados / ciclos independientes)
     Route::get('/memberships/client/{clientId}/services', [MembershipController::class, 'clientServices'])
         ->middleware('permission:MEMBERSHIPS_VIEW,MEMBERSHIPS_MANAGE');

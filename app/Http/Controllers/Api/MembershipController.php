@@ -39,6 +39,63 @@ class MembershipController extends Controller
     }
 
     /**
+     * Memberships expiring soon or already expired — for Dashboard alert panel.
+     * Query params:
+     *   days   → look-ahead window in days (default 7)
+     *   type   → 'expiring' | 'expired' | 'all' (default 'all')
+     *   limit  → max records (default 20)
+     */
+    public function expiring(Request $request)
+    {
+        $days  = max(1, (int) $request->input('days', 7));
+        $limit = min(100, max(1, (int) $request->input('limit', 20)));
+        $type  = $request->input('type', 'all');
+        $today = Carbon::today();
+
+        $query = Membership::with(['client', 'plan'])
+            ->whereIn('status', ['active', 'advance_active', 'advance_expiring']);
+
+        if ($type === 'expiring') {
+            // Vence entre hoy y +N días
+            $query->whereBetween('end_date', [$today, $today->copy()->addDays($days)->endOfDay()]);
+        } elseif ($type === 'expired') {
+            // Ya venció
+            $query->where('end_date', '<', $today);
+        } else {
+            // Ambos: ya vencidas O próximas a vencer
+            $query->where(function ($q) use ($today, $days) {
+                $q->where('end_date', '<', $today)
+                  ->orWhereBetween('end_date', [$today, $today->copy()->addDays($days)->endOfDay()]);
+            });
+        }
+
+        $memberships = $query->orderBy('end_date', 'asc')->limit($limit)->get();
+
+        return response()->json($memberships->map(function (Membership $m) use ($today) {
+            $endDate = $m->end_date;
+            $daysLeft = $endDate ? (int) $today->diffInDays($endDate, false) : null;
+            return [
+                'id'          => $m->id,
+                'client_id'   => $m->client_id,
+                'status'      => $m->status,
+                'end_date'    => $endDate?->toDateString(),
+                'start_date'  => $m->start_date?->toDateString(),
+                'days_left'   => $daysLeft,
+                'is_expired'  => $daysLeft !== null && $daysLeft < 0,
+                'plan'        => $m->plan ? ['id' => $m->plan->id, 'name' => $m->plan->name, 'plan_type' => $m->plan->plan_type ?? 'membership'] : null,
+                'client'      => $m->client ? [
+                    'id'              => $m->client->id,
+                    'full_name'       => $m->client->full_name,
+                    'first_name'      => $m->client->first_name,
+                    'last_name'       => $m->client->last_name,
+                    'phone'           => $m->client->phone,
+                    'photo_public_path' => $m->client->photo_public_path,
+                ] : null,
+            ];
+        }));
+    }
+
+    /**
      * Assign membership to client — supports single payment or installments
      */
     public function assign(Request $request)
